@@ -1,0 +1,5 @@
+struct ExtendedOptionHead : align(32) {
+    ty: Uuid,
+    flags: u32,
+    pad([u32; 3])
+}

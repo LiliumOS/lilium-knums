@@ -1,0 +1,74 @@
+const HANDLE_TYPE_PROC: ulong = 1;
+const HANDLE_TYPE_THREAD: ulong = 2;
+const HANDLE_TYPE_IO: ulong = 3;
+const HANDLE_SUBTYPE_IO_FILE: ulong = 0x10000003;
+const HANDLE_SUBTYPE_IO_DEV: ulong = 0x20000003;
+const HANDLE_SUBTYPE_IO_PIPE_READ: ulong = 0x30000003;
+const HANDLE_SUBTYPE_IO_PIPE_WRITE: ulong = 0x40000003;
+const HANDLE_SUBTYPE_IO_SOCKET: ulong = 0x50000003;
+const HANDLE_SUBTYPE_IO_SERVER: ulong = 0x60000003;
+const HANDLE_SUBTYPE_IO_MEMBUF: ulong = 0x70000003;
+const HANDLE_SUBTYPE_IO_IPCCON: ulong = 0x80000003;
+const HANDLE_SUBTYPE_IO_IPCSERVER: ulong = 0x90000003;
+const HANDLE_TYPE_DEBUG: ulong = 4;
+const HANDLE_TYPE_SECURITY: ulong = 5;
+const HANDLE_TYPE_NAMESPACE: ulong = 6;
+const HANDLE_TYPE_ENVMAP: ulong = 7;
+
+fn ShareHandle(
+        shdl: *mut *shared_handle Handle,
+        hdl: *handle Handle,
+        flags: u32,
+    ) -> SysResult = 0;
+fn UnshareHandle(hdl: *handle Handle) -> SysResult = 1;
+fn UpgradeSharedHandle(
+    hdlout: *mut *handle Handle,
+    shdl:  *shared_handle Handle,
+) -> SysResult = 2;
+fn IdentHandle(hdl: *handle Handle) -> SysResult = 3;
+
+/// Validates that the handle right `right` is is present on `hdl`.
+///
+/// Returns `OK` if the right is present, and `PERMISSION` if the right is not.
+/// Note that rights that aren't defined for a handle type are valid and are treated as if they aren't present.
+///
+/// ## Errors
+///
+/// Returns `INVALID_HANDLE` if `hdl` is not a valid handle.
+///
+/// Return `INVALID_MEMORY` if `right` does not point to valid memory.
+/// Returns `INVALID_STRING` if `right` is not a valid UTF-8 string.
+///
+/// Returns `PERMISSION` if  `hdl` does not possess the named access `right`
+fn CheckHandleRight(hdl: *handle Handle, right: KStrCPtr) -> SysResult = 4;
+/// Drops the specified handle right `right` from `hdl`. `hdl` can no longer perform operations associated with `right`.
+///
+/// An error only occurs if the operation cannot be performed (such as being given an invalid handle, or an invalid string),
+///  the call will always return `OK` regardless of whether the specified `right` is present on the handle (or even is a defined permission type)
+///
+/// ## Errors
+/// Returns `INVALID_HANDLE` if `hdl` is not a valid handle.
+///
+/// Return `INVALID_MEMORY` if `right` does not point to valid memory.
+/// Returns `INVALID_STRING` if `right` is not a valid UTF-8 string.
+fn DropHandleRight(hdl: *handle Handle, right: KStrCPtr) -> SysResult = 5;
+
+/// Drops all rights from the specified handle
+///
+/// ## Errors
+/// Returns `INVALID_HANDLE` if `hdl` is not a valid handle.
+fn DropAllHandleRights(hdl: *handle Handle) -> SysResult = 6;
+
+/// Grants the specified named right to `hdl` if the current thread has the required permissions.
+///
+/// The permission check is performed regardless of whether `hdl` already has the given right
+///
+/// ## Errors
+/// Returns `INVALID_HANDLE` if `hdl` is not a valid handle.
+///
+/// Returns `INVALID_MEMORY` if `right` does not point to valid memory.
+/// Returns `INVALID_STRING` if `right` is not a valid UTF-8 string.
+///
+/// Returns `PERMISSION` if the thread does not have the required permission.
+/// Returns `INVALID_OPERATION` if the specified `right` cannot be applied to the given handle.
+fn GrantHandleRight(hdl: *handle Handle, right: KStrCPtr) -> SysResult = 7;

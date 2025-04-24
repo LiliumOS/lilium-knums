@@ -1,0 +1,4 @@
+struct Uuid : align(16) {
+    lo: u64,
+    hi: u64,
+}

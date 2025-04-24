@@ -1,0 +1,7 @@
+%define_handle_types
+struct Handle : opaque;
+
+struct WideHandle<H> : align(16) {
+    hdl: *handle H,
+    padto(16)
+}

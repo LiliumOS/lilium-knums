@@ -1,0 +1,9 @@
+struct KSlice<T> {
+    buf_ptr: *mut T,
+    len: ulong,
+}
+
+struct KCSlice<T> {
+    buf_ptr: *const T,
+    len: ulong,
+}

@@ -1,0 +1,9 @@
+struct KStrPtr {
+    str_ptr: *mut char,
+    len: ulong,
+}
+
+struct KStrCPtr {
+    str_ptr: *const char,
+    len: ulong,
+}
