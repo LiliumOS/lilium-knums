@@ -1,0 +1,40 @@
+; Whitespace Sensitive Grammer
+
+file := [<whitespace>] *(<token> [<whitespace>])
+
+whitespace := 1*(<White_Space> / <comment>)
+    ; White_Space non-terminal matches a single character with the White_Space property
+
+newline := %x0A
+comment-begin := %x00-09 / %x0B-20 / %x22-2E / %x30-x10FFFF
+comment-char := <comment-begin> / "!" / "/"
+
+comment := "//" [<comment-begin> [*<comment-char>]] <newline>
+
+doc-comment := "///" *<comment-char> <newline>
+inner-doc-comment := "//!" *<comment-char> <newline>
+
+ident := <XID_Start> *<XID_Continue> ; Except <keyword>
+    ; XID_Start and XID_Continue non-terminals matches a single character with the respective property
+
+keyword := "use" / "type" / "const" / "mut" / "handle" / "shared_handle" / "struct" / "union" 
+
+octal-digit := %x30-37
+
+digit := %x30-39
+
+hex-digit := <digit> / %x41-46 / %x61-66
+
+uuid := "U{" 8<hex-digit> "-" 4<hex-digit> "-" 4<hex-digit> "-" 4<hex-digit> "-" 12<hex-digit> "}
+
+hex-literal = "0" ("x" / "X") 1*(<hex-digit> / "_")
+
+dec-literal = <digit> *(<digit> / "_")
+
+oct-literal = "0 ("o" / "O") 1*(<octal-digit> / "_")
+
+int-literal = <hex-literal> / <dec-literal> / <oct-literal>
+
+punct := "=" / "*" / "+" / "-" / "^" / "&" / "|" / "<<" / ">>" / "<" / ">" / "->" / "{" / "}" / "[" / "]" / "(" / ")"
+
+token := <int-literal> / <uuid> / <punct> / <keyword> / <ident> / <doc-comment> / <inner-doc-comment>
