@@ -575,9 +575,21 @@ impl<'a> NamedTypeVisitor for SimpleNamedTypeWriter<'a> {
     }
 
     #[allow(unused_variables)]
-    fn visit_replace(&mut self) -> impl ParamTypeVisitor + '_ {
+    fn visit_replace(&mut self) -> impl TypeVisitor + '_ {
         *self.0 = String::new();
         self
+    }
+}
+
+impl<'a> TypeVisitor for SimpleNamedTypeWriter<'a> {
+    fn visit_byte(&mut self) {
+        self.0.push_str("unsigned char")
+    }
+    fn visit_void(&mut self) {
+        self.0.push_str("void")
+    }
+    fn visit_array(&mut self) -> impl ArrayTypeVisitor + '_ {
+        ()
     }
 }
 

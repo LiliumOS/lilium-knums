@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_OPTION_520607B0921238B9
+#ifndef __LILIUM__TYPES_OPTION_3F90CAE00E990DC8
 
-#define __LILIUM__TYPES_OPTION_520607B0921238B9
+#define __LILIUM__TYPES_OPTION_3F90CAE00E990DC8
 
 #ifdef __cplusplus
 extern "C"{
@@ -11,5 +11,5 @@ typedef struct ExtendedOptionHead { Uuid ty; __u32 flags; __u32 __pad[3ULL]; } E
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_OPTION_520607B0921238B9
+#endif /* __LILIUM__TYPES_OPTION_3F90CAE00E990DC8
  */

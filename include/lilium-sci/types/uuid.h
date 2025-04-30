@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_UUID_811E07316344BA77
+#ifndef __LILIUM__TYPES_UUID_7BAC17B92CB367E0
 
-#define __LILIUM__TYPES_UUID_811E07316344BA77
+#define __LILIUM__TYPES_UUID_7BAC17B92CB367E0
 
 #ifdef __cplusplus
 extern "C"{
@@ -10,5 +10,5 @@ typedef struct Uuid { __u64 minor; __u64 major; } Uuid __attribute__((__aligned(
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_UUID_811E07316344BA77
+#endif /* __LILIUM__TYPES_UUID_7BAC17B92CB367E0
  */

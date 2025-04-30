@@ -294,14 +294,14 @@ make_visitor! {
                     }
                 }
                 Some(NameSuffix::ParamReplace(inner)) => {
-                    visit_param_type(this.visit_replace(), inner)
+                    visit_type(this.visit_replace(), inner)
                 }
                 None => {}
             }
         }
         fn visit_name(&mut self, name: &str);
         fn visit_arg(&mut self) -> impl TypeVisitor+'_;
-        fn visit_replace(&mut self) -> impl ParamTypeVisitor+'_;
+        fn visit_replace(&mut self) -> impl TypeVisitor+'_;
     }
     pub trait IntTypeVisitor (visit_int_type){
         |intty: IntType| {

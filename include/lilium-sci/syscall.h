@@ -1,6 +1,6 @@
-#ifndef __LILIUM__SYSCALL_A19D72E4D613EA5A
+#ifndef __LILIUM__SYSCALL_6FC28516F1FAD248
 
-#define __LILIUM__SYSCALL_A19D72E4D613EA5A
+#define __LILIUM__SYSCALL_6FC28516F1FAD248
 
 #ifdef __cplusplus
 extern "C"{
@@ -11,5 +11,5 @@ extern "C"{
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__SYSCALL_A19D72E4D613EA5A
+#endif /* __LILIUM__SYSCALL_6FC28516F1FAD248
  */

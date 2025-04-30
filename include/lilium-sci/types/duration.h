@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_DURATION_4A5EFEDE630AF516
+#ifndef __LILIUM__TYPES_DURATION_33C7E374217C8E1D
 
-#define __LILIUM__TYPES_DURATION_4A5EFEDE630AF516
+#define __LILIUM__TYPES_DURATION_33C7E374217C8E1D
 
 #ifdef __cplusplus
 extern "C"{
@@ -10,5 +10,5 @@ typedef struct Duration { __i64 seconds; __u32 nanos_of_second; } Duration ;
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_DURATION_4A5EFEDE630AF516
+#endif /* __LILIUM__TYPES_DURATION_33C7E374217C8E1D
  */

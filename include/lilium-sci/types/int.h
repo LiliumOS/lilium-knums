@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_INT_59630789C66998F2
+#ifndef __LILIUM__TYPES_INT_CCAEA4A1002D5063
 
-#define __LILIUM__TYPES_INT_59630789C66998F2
+#define __LILIUM__TYPES_INT_CCAEA4A1002D5063
 
 #ifdef __cplusplus
 extern "C"{
@@ -19,5 +19,5 @@ typedef unsigned long __ulong;
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_INT_59630789C66998F2
+#endif /* __LILIUM__TYPES_INT_CCAEA4A1002D5063
  */

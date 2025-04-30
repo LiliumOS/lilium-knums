@@ -1,6 +1,6 @@
-#ifndef __LILIUM__PROCESS_HDL_7D76726700747ACA
+#ifndef __LILIUM__PROCESS_HDL_F775CD48AEF2FFC4
 
-#define __LILIUM__PROCESS_HDL_7D76726700747ACA
+#define __LILIUM__PROCESS_HDL_F775CD48AEF2FFC4
 
 #ifdef __cplusplus
 extern "C"{
@@ -10,5 +10,5 @@ typedef struct ProcessHandle  ProcessHandle ;
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__PROCESS_HDL_7D76726700747ACA
+#endif /* __LILIUM__PROCESS_HDL_F775CD48AEF2FFC4
  */

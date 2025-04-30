@@ -1,6 +1,6 @@
-#ifndef __LILIUM__BASE_HDL_5F78E979FF8603D1
+#ifndef __LILIUM__BASE_HDL_2329504F55315C45
 
-#define __LILIUM__BASE_HDL_5F78E979FF8603D1
+#define __LILIUM__BASE_HDL_2329504F55315C45
 
 #ifdef __cplusplus
 extern "C"{
@@ -74,5 +74,5 @@ extern  SysResult GrantHandleRight( Handle * __handle hdl,  KStrCPtr right);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__BASE_HDL_5F78E979FF8603D1
+#endif /* __LILIUM__BASE_HDL_2329504F55315C45
  */

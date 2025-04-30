@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_SYSRESULT_DE074993EDCB44D1
+#ifndef __LILIUM__TYPES_SYSRESULT_A2126451BEA9E910
 
-#define __LILIUM__TYPES_SYSRESULT_DE074993EDCB44D1
+#define __LILIUM__TYPES_SYSRESULT_A2126451BEA9E910
 
 #ifdef __cplusplus
 extern "C"{
@@ -10,5 +10,5 @@ typedef  __ilong SysResult;
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_SYSRESULT_DE074993EDCB44D1
+#endif /* __LILIUM__TYPES_SYSRESULT_A2126451BEA9E910
  */

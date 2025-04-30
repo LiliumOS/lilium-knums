@@ -1,6 +1,6 @@
-#ifndef __LILIUM__BASE_0064A6F089194135
+#ifndef __LILIUM__BASE_B4F5AFEF3A65F74E
 
-#define __LILIUM__BASE_0064A6F089194135
+#define __LILIUM__BASE_B4F5AFEF3A65F74E
 
 #ifdef __cplusplus
 extern "C"{
@@ -12,5 +12,5 @@ extern "C"{
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__BASE_0064A6F089194135
+#endif /* __LILIUM__BASE_B4F5AFEF3A65F74E
  */

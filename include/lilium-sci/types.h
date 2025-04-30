@@ -1,6 +1,6 @@
-#ifndef __LILIUM__TYPES_FB281890F2C9A1B7
+#ifndef __LILIUM__TYPES_5A25A8DD12A837DE
 
-#define __LILIUM__TYPES_FB281890F2C9A1B7
+#define __LILIUM__TYPES_5A25A8DD12A837DE
 
 #ifdef __cplusplus
 extern "C"{
@@ -16,5 +16,5 @@ extern "C"{
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__TYPES_FB281890F2C9A1B7
+#endif /* __LILIUM__TYPES_5A25A8DD12A837DE
  */

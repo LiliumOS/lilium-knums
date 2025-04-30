@@ -1,10 +1,10 @@
 use types::int;
 struct KSlice<T> {
-    buf_ptr: *mut T,
+    buf_ptr: *mut T!void,
     len: ulong,
 }
 
 struct KCSlice<T> {
-    buf_ptr: *const T,
+    buf_ptr: *const T!void,
     len: ulong,
 }

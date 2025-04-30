@@ -1,6 +1,6 @@
-#ifndef __LILIUM__BASE_PERMISSION_42706D6B02313E9A
+#ifndef __LILIUM__BASE_PERMISSION_7BBF955E9EAF680D
 
-#define __LILIUM__BASE_PERMISSION_42706D6B02313E9A
+#define __LILIUM__BASE_PERMISSION_7BBF955E9EAF680D
 
 #ifdef __cplusplus
 extern "C"{
@@ -156,5 +156,5 @@ extern  SysResult GetSecondaryPrincipals( SecurityContext * __handle ctx,  KSlic
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __LILIUM__BASE_PERMISSION_42706D6B02313E9A
+#endif /* __LILIUM__BASE_PERMISSION_7BBF955E9EAF680D
  */
