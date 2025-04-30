@@ -9,6 +9,7 @@ use crate::{
     visit::*,
 };
 use core::fmt::Write as _;
+use std::path::PathBuf;
 
 pub struct CBuilder {
     file: String,
@@ -65,6 +66,14 @@ pub fn create_file_visitor(path: &Path, cookie: u64) -> CBuilder {
         file: String::new(),
         guard_var,
     }
+}
+
+pub fn make_stamp(output: &std::path::Path) -> std::io::Result<PathBuf> {
+    let mut path = output.to_path_buf();
+    path.push("stamp");
+    std::fs::File::create(&path)?;
+
+    Ok(path)
 }
 
 pub fn write_output(

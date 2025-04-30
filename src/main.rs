@@ -49,14 +49,16 @@ fn main() -> std::io::Result<()> {
 
     let path = Path::new("defs"); // TODO: Unhardcode this later
     let mut inputs = IndexMap::new();
+    let mut fileset = Vec::new();
     for file in walkdir::WalkDir::new(path) {
         let file = file?;
+
         let name = file.path().strip_prefix(path).unwrap();
         name.hash(&mut rand);
 
         if name.extension().is_some_and(|v| v == OsStr::new("knum")) {
-            let file = std::fs::read_to_string(file.path())?;
-            file.hash(&mut rand);
+            let content = std::fs::read_to_string(file.path())?;
+            content.hash(&mut rand);
             let name = name.as_os_str().to_string_lossy();
             let path = ast::item::Path {
                 components: name
@@ -68,13 +70,14 @@ fn main() -> std::io::Result<()> {
                 has_leading: false,
             };
 
-            let mut lexer = Token::lexer(&file).flatten().peekable();
-            let file = parse_file(&mut lexer);
-            inputs.insert(path, file);
+            let mut lexer = Token::lexer(&content).flatten().peekable();
+            let body = parse_file(&mut lexer);
+            inputs.insert(path, body);
+            fileset.push(file.into_path());
         }
     }
 
     println!("Files {inputs:#?}");
 
-    cg::do_cg(&inputs, "cheader", Path::new("include"), rand)
+    cg::do_cg(&inputs, "cheader", Path::new("include"), rand, &fileset)
 }

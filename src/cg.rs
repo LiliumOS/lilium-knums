@@ -12,11 +12,13 @@ macro_rules! def_cg_types {
         $(
             mod $name;
         )*
-        pub fn do_cg(files: &IndexMap<Path, File>, name: &str, output: &std::path::Path, mut rand: SipHasher::<2,4>) -> std::io::Result<()> {
+        pub fn do_cg(files: &IndexMap<Path, File>, name: &str, output: &std::path::Path, mut rand: SipHasher::<2,4>, fileset: &[impl AsRef<std::path::Path>]) -> std::io::Result<()> {
             use core::hash::{Hash, Hasher};
+            use std::io::Write;
             name.hash(&mut rand);
             output.hash(&mut rand);
-            match name {
+
+            let stamp_file = match name {
                 $(::core::stringify!($name) => {
                     std::fs::create_dir_all(output)?;
                     $name::write_misc(output)?;
@@ -27,10 +29,20 @@ macro_rules! def_cg_types {
                         visit_file(&mut visitor, file);
                         $name::write_output(visitor, output, path)?;
                     }
-                    Ok(())
+                    $name::make_stamp(output)?
                 })*
-                _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Codegen type `{name}` not recognized")))
+                _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Codegen type `{name}` not recognized")))?
+            };
+
+            let mut file = std::fs::File::create("knums.d")?;
+
+            write!(file, "{}:", stamp_file.display())?;
+
+            for input in fileset {
+                write!(file, " {}", input.as_ref().display())?;
             }
+            writeln!(file)
+
         }
     }
 }
