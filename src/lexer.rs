@@ -16,7 +16,7 @@ pub enum Token {
     InnerDoc(String),
     #[regex(r"///[^\n]*\n", |lex|lex.slice()[3..].trim().to_owned(), priority=10)]
     DocString(String),
-    #[regex(r"U\{[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}\}", |lex|lex.slice().to_owned())]
+    #[regex(r"U\{[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}\}", |lex|lex.slice()[1..].to_owned())]
     Uuid(String),
     #[regex(r"//[^\n]*\n", skip)]
     Comment,

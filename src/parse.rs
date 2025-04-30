@@ -1,4 +1,4 @@
-use lilium_sys::uuid::parse_uuid;
+use lilium_sys::uuid::{parse_uuid, try_parse_uuid};
 
 use crate::{
     ast::{
@@ -53,7 +53,7 @@ pub fn parse_simple_expr<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> E
             let nested = parse_simple_expr(iter);
             Expression::Unary(crate::ast::expr::UnaryExpr(UnaryOp::Plus, Box::new(nested)))
         }
-        Token::Uuid(uuid) => Expression::UuidLit(parse_uuid(&uuid)),
+        Token::Uuid(uuid) => Expression::UuidLit(try_parse_uuid(&uuid).expect("Bad UUID Literal")),
         tok => panic!("Expected an expression, got {tok:?}"),
     }
 }
@@ -332,6 +332,27 @@ pub fn parse_item<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Item {
                                 check_exact(iter, Token::CloseParen);
                                 properties.push(StructProperties::Align(expr))
                             }
+                            Token::Ident(id) if id == "option_body" => {
+                                check_exact(iter, Token::OpenParen);
+                                let mut sizes = Vec::new();
+                                loop {
+                                    sizes.push(parse_expr(iter));
+
+                                    match iter.next().unwrap() {
+                                        Token::Comma => continue,
+                                        Token::CloseParen => break,
+                                        tok => panic!("Expected `)` or `,`, got {tok:?}"),
+                                    }
+                                }
+
+                                properties.push(StructProperties::OptionBody(sizes))
+                            }
+                            Token::Ident(id) if id == "option" => {
+                                check_exact(iter, Token::OpenParen);
+                                let expr = parse_expr(iter);
+                                check_exact(iter, Token::CloseParen);
+                                properties.push(StructProperties::Option(expr))
+                            }
                             Token::Ident(id) if id == "opaque" => break true,
                             Token::OpenBrace => break false,
                             x => panic!("Expected `align`, got `{x:?}`"),
@@ -363,8 +384,13 @@ pub fn parse_item<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Item {
                     StructBody::Opaque(OpaqueBody(ty))
                 } else {
                     let mut fields = Vec::new();
+                    let mut doc = Vec::new();
                     let padding = loop {
                         let id = match iter.next().unwrap() {
+                            Token::DocString(st) => {
+                                doc.push(st);
+                                continue;
+                            }
                             Token::Ident(id) => id,
                             Token::CloseBrace => break None,
                             tok => panic!("Expected an identifier, got {tok:?}"),
@@ -374,7 +400,11 @@ pub fn parse_item<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Item {
                             Token::CloseBrace => break None,
                             Token::Colon => {
                                 let ty = parse_type(iter);
-                                fields.push(StructField { name: id, ty });
+                                fields.push(StructField {
+                                    name: id,
+                                    ty,
+                                    doc: core::mem::take(&mut doc),
+                                });
                                 match iter.next().unwrap() {
                                     Token::Comma => continue,
                                     Token::CloseBrace => break None,

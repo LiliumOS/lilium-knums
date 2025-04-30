@@ -1,0 +1,25 @@
+use types::hdl;
+use types::int;
+use types::sysresult;
+use types::option;
+use types::str;
+
+/// Standard request for querying information about the OS.
+/// This request should be 
+struct SysInfoRequestOsVersion : option(U{22c479ab-c119-58d5-9c1e-fa03ddf9426a}) {
+    head: ExtendedOptionHead,
+    os_name: KStrPtr,
+    /// The Major Version of the OS
+    os_major: u32,
+    /// The Minor Version of the OS
+    os_minor: u32,
+} 
+
+
+union ProcInfoRequest : option_body(64, __LILIUM_SIZEOF_POINTER__ * 8) {}
+
+
+union SysInfoRequest : option_body(64, __LILIUM_SIZEOF_POINTER__ * 8) {
+    proc_info: ProcInfoRequest,
+    os_version: SysInfoRequestOsVersion
+}

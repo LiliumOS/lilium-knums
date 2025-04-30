@@ -104,6 +104,8 @@ impl core::fmt::Display for StructKind {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StructProperties {
     Align(Expression),
+    OptionBody(Vec<Expression>),
+    Option(Expression),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -130,5 +132,6 @@ pub enum Padding {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StructField {
     pub name: String,
+    pub doc: Vec<String>,
     pub ty: Type,
 }

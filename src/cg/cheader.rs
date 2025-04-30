@@ -718,6 +718,8 @@ pub struct StructItemWriter<'a> {
     name: String,
     aligned_attr: Option<String>,
     body: String,
+    option_body: Vec<String>,
+    option_id: Option<String>,
 }
 
 impl<'a> StructItemWriter<'a> {
@@ -728,6 +730,8 @@ impl<'a> StructItemWriter<'a> {
             name: String::new(),
             aligned_attr: None,
             body: String::new(),
+            option_body: Vec::new(),
+            option_id: None,
         }
     }
 }
@@ -740,6 +744,8 @@ impl<'a> Drop for StructItemWriter<'a> {
             name,
             aligned_attr,
             body,
+            option_body,
+            option_id,
             ..
         } = self;
 
@@ -747,7 +753,38 @@ impl<'a> Drop for StructItemWriter<'a> {
             .as_deref()
             .map(|e| format!("__attribute__((__aligned({e})))"))
             .unwrap_or_default();
-        let _ = writeln!(file, "typedef {kind} {name} {body} {name} {aligned_attr};");
+
+        let mut option_body_inner = None;
+
+        for (n, item) in option_body.iter().enumerate() {
+            let _ = write!(
+                option_body_inner.get_or_insert(String::new()),
+                "unsigned char __pad{n}[{item}]; "
+            );
+        }
+
+        let option_body = option_body_inner
+            .as_deref()
+            .map(|e| format!("struct{{ ExtendedOptionHead head; union{{{e}}}; }};"))
+            .unwrap_or_default();
+        let _ = writeln!(
+            file,
+            "typedef {kind} {name} {body} {option_body}}} {name} {aligned_attr};"
+        );
+
+        if let Some(id) = option_id.as_deref() {
+            let mut new_name = String::with_capacity((name.len() * 3) >> 1);
+            let mut last = 0;
+            for (i, _) in name.match_indices(|c: char| c.is_ascii_uppercase()) {
+                new_name.push('_');
+                new_name.push_str(&name[last..i]);
+                last = i;
+            }
+            new_name.push('_');
+            new_name.push_str(&name[last..]);
+            new_name.make_ascii_uppercase();
+            let _ = writeln!(file, "#define __LILIUM{new_name}_ID ({id})");
+        }
     }
 }
 
@@ -788,6 +825,15 @@ impl<'a> StructOptionVisitor for StructItemWriter<'a> {
     fn visit_align(&mut self) -> impl ExprVisitor + '_ {
         ExprWriter::new(self.aligned_attr.insert(String::new()))
     }
+
+    fn visit_option_id(&mut self) -> impl ExprVisitor + '_ {
+        ExprWriter::new(self.option_id.insert(String::new()))
+    }
+
+    fn visit_option_body_pad(&mut self) -> impl ExprVisitor + '_ {
+        self.option_body.push(String::new());
+        ExprWriter::new(self.option_body.last_mut().unwrap())
+    }
 }
 
 pub struct StructBodyWriter<'a> {
@@ -811,7 +857,6 @@ impl<'a> Drop for StructBodyWriter<'a> {
         if let Some(pad_name_and_type) = &self.pad_name_and_type {
             let _ = write!(self.body, "{pad_name_and_type};");
         }
-        self.body.push_str(" }");
     }
 }
 
@@ -849,6 +894,7 @@ impl<'a> Drop for FieldWriter<'a> {
 }
 
 impl<'a> FieldVisitor for FieldWriter<'a> {
+    fn visit_doc_line(&mut self, st: &str) {}
     fn visit_name(&mut self, n: &str) {
         self.1.name = n.to_string();
     }

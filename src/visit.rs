@@ -204,10 +204,16 @@ make_visitor! {
     pub trait StructOptionVisitor (visit_struct_option){
         |option: StructProperties| {
             match option {
-                StructProperties::Align(align) => visit_expr(this.visit_align(), align)
+                StructProperties::Align(align) => visit_expr(this.visit_align(), align),
+                StructProperties::OptionBody(body) => for item in body {
+                    visit_expr(this.visit_option_body_pad(), item)
+                },
+                StructProperties::Option(id) => visit_expr(this.visit_option_id(), id),
             }
         }
         fn visit_align(&mut self) -> impl ExprVisitor + '_;
+        fn visit_option_body_pad(&mut self) -> impl ExprVisitor + '_;
+        fn visit_option_id(&mut self) -> impl ExprVisitor + '_;
     }
 
     pub trait StructBodyVisitor (visit_struct_body){
@@ -228,9 +234,13 @@ make_visitor! {
 
     pub trait FieldVisitor (visit_field){
         |field: StructField| {
+            for doc in &field.doc {
+                this.visit_doc_line(doc);
+            }
             this.visit_name(&field.name);
             visit_type(this.visit_ty(), &field.ty);
         }
+        fn visit_doc_line(&mut self, st: &str);
         fn visit_name(&mut self, n: &str);
         fn visit_ty(&mut self) -> impl TypeVisitor + '_;
     }
