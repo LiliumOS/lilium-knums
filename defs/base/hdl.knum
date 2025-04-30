@@ -1,3 +1,6 @@
+use types::hdl;
+use types::int;
+
 const HANDLE_TYPE_PROC: ulong = 1;
 const HANDLE_TYPE_THREAD: ulong = 2;
 const HANDLE_TYPE_IO: ulong = 3;

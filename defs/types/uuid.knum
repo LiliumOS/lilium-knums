@@ -1,4 +1,6 @@
+use types::int;
+
 struct Uuid : align(16) {
-    lo: u64,
-    hi: u64,
+    minor: u64,
+    major: u64,
 }

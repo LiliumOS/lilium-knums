@@ -1,6 +1,7 @@
 ; Whitespace Sensitive Grammer
 
 file := [<whitespace>] *(<token> [<whitespace>])
+    ; Every file must match the lexical file non-terminal
 
 whitespace := 1*(<White_Space> / <comment>)
     ; White_Space non-terminal matches a single character with the White_Space property
@@ -35,6 +36,6 @@ oct-literal = "0 ("o" / "O") 1*(<octal-digit> / "_")
 
 int-literal = <hex-literal> / <dec-literal> / <oct-literal>
 
-punct := "=" / "*" / "+" / "-" / "^" / "&" / "|" / "<<" / ">>" / "<" / ">" / "->" / "{" / "}" / "[" / "]" / "(" / ")"
+punct := "=" / "*" / "+" / "-" / "^" / "&" / "|" / "<<" / ">>" / "<" / ">" / "->" / "{" / "}" / "[" / "]" / "(" / ")" / "/"
 
 token := <int-literal> / <uuid> / <punct> / <keyword> / <ident> / <doc-comment> / <inner-doc-comment>

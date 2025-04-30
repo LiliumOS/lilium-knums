@@ -1,4 +1,6 @@
 
+use types::int;
+
 use types::sysresult;
 use types::hdl;
 use types::duration;

@@ -1,3 +1,4 @@
+use types::int;
 struct KSlice<T> {
     buf_ptr: *mut T,
     len: ulong,

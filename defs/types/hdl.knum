@@ -1,7 +1,8 @@
 %define_handle_types
+use types::int;
 struct Handle : opaque;
 
 struct WideHandle<H> : align(16) {
-    hdl: *handle H,
-    padto(16)
+    hdl: *handle H!Handle,
+    pad([*const void; (16 - __LILIUM_SIZEOF_POINTER__)/__LILIUM_SIZEOF_POINTER__])
 }

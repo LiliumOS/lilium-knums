@@ -20,10 +20,26 @@ pub enum Type {
     Char,
     Void,
     Never,
-    Array(Box<Type>, Expression),
+    Byte,
+    Array(ArrayType),
     Fn(FnSignature),
-    Pointer(PointerKind, Box<Type>),
-    Named(String),
+    Pointer(PointerType),
+    Named(NamedType),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ArrayType(pub Box<Type>, pub Expression);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PointerType(pub PointerKind, pub Box<Type>);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct NamedType(pub String, pub Option<NameSuffix>);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum NameSuffix {
+    Generics(Vec<Type>),
+    ParamReplace(Box<Type>),
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
@@ -55,10 +71,7 @@ impl core::fmt::Display for IntType {
             f.write_str("u")?;
         }
 
-        match self.width {
-            IntWidth::Bits(n) => n.fmt(f),
-            IntWidth::Long => f.write_str("long"),
-        }
+        self.width.fmt(f)
     }
 }
 
@@ -66,6 +79,15 @@ impl core::fmt::Display for IntType {
 pub enum IntWidth {
     Bits(NonZero<u8>),
     Long,
+}
+
+impl core::fmt::Display for IntWidth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IntWidth::Bits(n) => n.fmt(f),
+            IntWidth::Long => f.write_str("long"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]

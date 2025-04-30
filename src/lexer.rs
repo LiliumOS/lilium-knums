@@ -8,8 +8,8 @@ pub enum Token {
     Directive(String),
     #[regex(r"[\p{XID_Start}_][\p{XID_Continue}_]*", |lex|lex.slice().to_owned())]
     Ident(String),
-    #[regex(r"0x[[[:xdigit:]]_]+", |lex| lex.slice().to_owned())]
-    #[regex(r"0o[0-7_]+", |lex| lex.slice().to_owned())]
+    #[regex(r"0[xX][[[:xdigit:]]_]+", |lex| lex.slice().to_owned())]
+    #[regex(r"0[oO][0-7_]+", |lex| lex.slice().to_owned())]
     #[regex(r"[[:digit:]][[[:digit:]]_]*", |lex| lex.slice().to_owned())]
     IntLit(String),
     #[regex(r"//![^\n]*\n", |lex|lex.slice()[3..].trim().to_owned(), priority=10)]
@@ -63,6 +63,8 @@ pub enum Token {
     Add,
     #[token("-")]
     Sub,
+    #[token("/")]
+    Div,
     #[token("->")]
     Arrow,
     #[token(":")]

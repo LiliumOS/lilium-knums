@@ -1,12 +1,14 @@
+use lilium_sys::uuid::parse_uuid;
+
 use crate::{
     ast::{
         File,
-        expr::{BinaryOp, Expression, UnaryOp},
+        expr::{BinaryExpr, BinaryOp, Expression, UnaryOp},
         item::{
-            Item, ItemBody, ItemConst, ItemFn, ItemTypeAlias, ItemUse, Padding, Path, StructBody,
-            StructBodyFields, StructField, StructKind, StructProperties,
+            Item, ItemBody, ItemConst, ItemFn, ItemTypeAlias, ItemUse, OpaqueBody, Padding, Path,
+            StructBody, StructBodyFields, StructField, StructKind, StructProperties,
         },
-        ty::{FnParam, FnSignature, IntType, IntWidth, PointerKind, Type},
+        ty::{FnParam, FnSignature, IntType, IntWidth, NameSuffix, PointerKind, PointerType, Type},
     },
     lexer::Token,
 };
@@ -41,17 +43,17 @@ pub fn parse_simple_expr<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> E
         Token::IntLit(id) => Expression::Integer(id),
         Token::Not => {
             let nested = parse_simple_expr(iter);
-            Expression::Unary(UnaryOp::Not, Box::new(nested))
+            Expression::Unary(crate::ast::expr::UnaryExpr(UnaryOp::Not, Box::new(nested)))
         }
         Token::Sub => {
             let nested = parse_simple_expr(iter);
-            Expression::Unary(UnaryOp::Neg, Box::new(nested))
+            Expression::Unary(crate::ast::expr::UnaryExpr(UnaryOp::Neg, Box::new(nested)))
         }
         Token::Add => {
             let nested = parse_simple_expr(iter);
-            Expression::Unary(UnaryOp::Plus, Box::new(nested))
+            Expression::Unary(crate::ast::expr::UnaryExpr(UnaryOp::Plus, Box::new(nested)))
         }
-        Token::Uuid(uuid) => Expression::UuidLit(uuid),
+        Token::Uuid(uuid) => Expression::UuidLit(parse_uuid(&uuid)),
         tok => panic!("Expected an expression, got {tok:?}"),
     }
 }
@@ -61,11 +63,13 @@ fn pratt(t: &Token) -> Option<(BinaryOp, u32)> {
         Token::Add => Some((BinaryOp::Add, 1)),
         Token::Sub => Some((BinaryOp::Sub, 1)),
         Token::Star => Some((BinaryOp::Mul, 2)),
+        Token::Div => Some((BinaryOp::Div, 2)),
         Token::BitAnd => Some((BinaryOp::BitAnd, 3)),
         Token::BitOr => Some((BinaryOp::BitOr, 3)),
         Token::BitXor => Some((BinaryOp::BitXor, 3)),
         Token::ShiftLeft => Some((BinaryOp::ShiftLeft, 4)),
         Token::ShiftRight => Some((BinaryOp::ShiftRight, 4)),
+
         _ => None,
     }
 }
@@ -90,7 +94,7 @@ pub fn parse_binary_expr<I: Iterator<Item = Token>>(
 
         let second = parse_binary_expr(iter, rbp);
 
-        base = Expression::Binary(op, Box::new(base), Box::new(second));
+        base = Expression::Binary(BinaryExpr(op, Box::new(base), Box::new(second)));
     }
     base
 }
@@ -99,10 +103,11 @@ pub fn parse_expr<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Expressi
     parse_binary_expr(iter, 0)
 }
 
-fn id_to_ty(id: String) -> Type {
+fn id_to_ty<I: Iterator<Item = Token>>(id: String, iter: &mut Peekable<I>) -> Type {
     match &*id {
         "void" => Type::Void,
         "char" => Type::Char,
+        "byte" => Type::Byte,
         x if x.starts_with('u') || x.starts_with('i') => {
             let signed = x.starts_with('i');
             let width = match &x[1..] {
@@ -118,20 +123,45 @@ fn id_to_ty(id: String) -> Type {
 
             Type::Integer(intty)
         }
-        _ => Type::Named(id),
+        _ => {
+            let mut suffix = match iter.peek() {
+                Some(Token::OpenAngle) => {
+                    let mut generics = Vec::new();
+                    iter.next();
+                    loop {
+                        generics.push(parse_type(iter));
+                        match iter.next().unwrap() {
+                            Token::Comma => continue,
+                            Token::CloseAngle => break,
+                            tok => panic!("Expected a `,` or `>`, got {tok:?}"),
+                        }
+                    }
+
+                    Some(NameSuffix::Generics(generics))
+                }
+                Some(Token::Not) => {
+                    iter.next();
+                    let inner_ty = parse_type(iter);
+                    Some(NameSuffix::ParamReplace(Box::new(inner_ty)))
+                }
+                _ => None,
+            };
+
+            Type::Named(crate::ast::ty::NamedType(id, suffix))
+        }
     }
 }
 
 pub fn parse_type<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Type {
     match iter.next().unwrap() {
-        Token::Ident(id) => id_to_ty(id),
+        Token::Ident(id) => id_to_ty(id, iter),
         Token::OpenBracket => {
             let inner = parse_type(iter);
             check_exact(iter, Token::Semi);
             let len = parse_expr(iter);
             check_exact(iter, Token::CloseBracket);
 
-            Type::Array(Box::new(inner), len)
+            Type::Array(crate::ast::ty::ArrayType(Box::new(inner), len))
         }
         Token::Fn => {
             let sig = parse_fn_sig(iter);
@@ -150,7 +180,7 @@ pub fn parse_type<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Type {
 
             let inner = parse_type(iter);
 
-            Type::Pointer(kind, Box::new(inner))
+            Type::Pointer(PointerType(kind, Box::new(inner)))
         }
         Token::Not => Type::Never,
         tok => panic!("Expected a type, got {tok:?}"),
@@ -177,7 +207,7 @@ pub fn parse_fn_sig<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> FnSign
 
                         (Some(id), ty)
                     }
-                    _ => (None, id_to_ty(id)),
+                    _ => (None, id_to_ty(id, iter)),
                 }
             }
             _ => (None, parse_type(iter)),
@@ -330,7 +360,7 @@ pub fn parse_item<I: Iterator<Item = Token>>(iter: &mut Peekable<I>) -> Item {
                         Token::Semi => None,
                         tok => panic!("Expected an opaque body, got {tok:?}"),
                     };
-                    StructBody::Opaque(ty)
+                    StructBody::Opaque(OpaqueBody(ty))
                 } else {
                     let mut fields = Vec::new();
                     let padding = loop {

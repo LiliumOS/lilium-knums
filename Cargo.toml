@@ -7,3 +7,6 @@ edition = "2024"
 indexmap = "2.9.0"
 logos = "0.15.0"
 walkdir = "2.5.0"
+lilium-sys = { git = "https://github.com/LiliumOS/lilium-sys", no-default-features = true }
+rand = "0.9.1"
+lccc-siphash = { git = "https://github.com/lccc-project/lccc-siphash.git", version = "0.1.0" }

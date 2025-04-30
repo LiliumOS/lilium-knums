@@ -1,2 +1,2 @@
-
+use types::int;
 type SysResult = ilong;

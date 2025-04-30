@@ -92,6 +92,15 @@ pub enum StructKind {
     Union,
 }
 
+impl core::fmt::Display for StructKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Struct => f.write_str("struct"),
+            Self::Union => f.write_str("union"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StructProperties {
     Align(Expression),
@@ -99,9 +108,12 @@ pub enum StructProperties {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StructBody {
-    Opaque(Option<Type>),
+    Opaque(OpaqueBody),
     Fields(StructBodyFields),
 }
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct OpaqueBody(pub Option<Type>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StructBodyFields {

@@ -1,4 +1,4 @@
-use item::Item;
+use item::{Item, Path};
 
 pub mod expr;
 
