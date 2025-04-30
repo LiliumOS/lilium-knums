@@ -1,0 +1,29 @@
+use types::int;
+use types::option;
+use types::slice;
+use types::uuid;
+use types::sysresult;
+
+union SysConfigOption : option_body(32) {
+
+}
+
+/// Sets the current arch config. The ability set any particular config depends on the Arch, kernel support, and the particular CPU.
+///
+fn SetSysConfig(config_options: *const KCSlice<SysConfigOption>) -> SysResult = 0x38;
+/// Retrieves the current configuration the CPU is presently providing to the thread.
+/// Note that, unless you configure the thread via [`SetSysConfig`], it is not guaranteed throughout the lifetime of the thread that any feature will remain available,
+///  however it will always be valid to call [`SetSysConfig`] with the same array as is returned by
+///
+/// Each [`SysConfigOption`] uses bit `0` to configure whether it is mandatory or optional - if it is set, unsupported options are ignored and do not cause an error.
+/// If bit `0` is set for any type that is recognized, the kernel will clear it when writing to the option.
+/// Bit 16 does not have any effect for [`GetProvidedSysConfig`].
+fn GetProvidedSysConfig(config_options: *mut KSlice<SysConfigOption>) -> SysResult = 0x39;
+/// This returns the active configuration for the thread. If set by [`SetSysConfig`], the value returned matches the value last set there.
+/// The default config depends on the Kernel Version and CPU. However, it is guaranteed that the thread can rely on the default configuration throughout its entire lifetime,
+///  unless it changes to a different feature set.
+///
+/// Each [`SysConfigOption`] uses bit `0` to configure whether it is mandatory or optional - if it is set, unsupported options are ignored and do not cause an error.
+/// If bit `0` is set for any type that is recognized, the kernel will clear it when writing to the option.
+/// Bit 16 does not have any effect for [`GetActiveSysConfig`].
+fn GetActiveSysConfig(config_options: *mut KSlice<SysConfigOption>) -> SysResult = 0x3A;

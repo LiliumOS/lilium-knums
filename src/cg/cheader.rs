@@ -499,7 +499,9 @@ impl<'a> ParamTypeVisitor for TypeWriter<'a> {
 
     #[allow(unused_variables)]
     fn visit_fn_pointer(&mut self) -> impl SignatureVisitor + '_ {
-        ()
+        self.0.pointers_and_suffix.outer_pointers.push("*");
+        bump_suffix(&mut self.0.pointers_and_suffix);
+        SignatureWriter::new(&mut self.0)
     }
 
     #[allow(unused_variables)]
@@ -776,10 +778,11 @@ impl<'a> Drop for StructItemWriter<'a> {
             .as_deref()
             .map(|e| format!("struct{{ ExtendedOptionHead head; union{{{e}}}; }};"))
             .unwrap_or_default();
-        let _ = writeln!(
-            file,
-            "typedef {kind} {name} {body} {option_body}}} {name} {aligned_attr};"
-        );
+        let _ = writeln!(file, "typedef {kind} {name} {name} {aligned_attr};");
+
+        if !body.is_empty() {
+            let _ = writeln!(file, "{kind} {name} {body} {option_body}}};");
+        }
 
         if let Some(id) = option_id.as_deref() {
             let mut new_name = String::with_capacity((name.len() * 3) >> 1);

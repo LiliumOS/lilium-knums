@@ -77,7 +77,5 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    println!("Files {inputs:#?}");
-
     cg::do_cg(&inputs, "cheader", Path::new("include"), rand, &fileset)
 }

@@ -1,3 +1,4 @@
 %def_sys_proto
 
 use base::syscall;
+use base::errnum;
