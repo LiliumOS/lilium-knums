@@ -283,7 +283,10 @@ impl<'a> ExprVisitor for ExprWriter<'a> {
 
     fn visit_uuid_literal(&mut self, uuid: lilium_sys::uuid::Uuid) {
         let Uuid { minor, major } = uuid;
-        let _ = write!(self.0, "((Uuid){{.minor = {minor}, .major = {major}}})");
+        let _ = write!(
+            self.0,
+            "((Uuid){{.minor = {minor}ULL, .major = {major}ULL}})"
+        );
     }
     fn visit_unary_expr(&mut self) -> impl UnaryExprVisitor + '_ {
         UnaryExprWriter::new(&mut self.0)
@@ -762,7 +765,7 @@ impl<'a> Drop for StructItemWriter<'a> {
 
         let aligned_attr = aligned_attr
             .as_deref()
-            .map(|e| format!("__attribute__((__aligned({e})))"))
+            .map(|e| format!("__attribute__((__aligned__({e})))"))
             .unwrap_or_default();
 
         let mut option_body_inner = None;

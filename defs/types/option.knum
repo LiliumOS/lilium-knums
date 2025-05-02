@@ -1,6 +1,8 @@
 use types::int;
 use types::uuid;
 
+const OPTION_FLAG_IGNORE: u32 = 0x0000_00001;
+
 struct ExtendedOptionHead : align(32) {
     ty: Uuid,
     flags: u32,

@@ -68,7 +68,7 @@ fn ExceptRaiseAsynchronous(
 fn ExceptResumeAt(
     code_addr: *mut void,
     ctx: *handle ExceptionContextHandle,
-) -> NonZeroSysResult = 0x44;
+) -> SysResult = 0x44;
 
 /// Sets a register in the context. The value is the same size as a machine word
 /// regno is the same as for [`DebugWriteRegister`][super::debug::DebugWriteRegister]. Debug and Task registers cannot be modified.

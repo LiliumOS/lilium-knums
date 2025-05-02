@@ -9,7 +9,7 @@ use types::slice;
 use thread::hdl;
 use process::hdl;
 
-struct SecurityContextHandle : opaque(Handle);
+struct SecurityContext : opaque(Handle);
 
 union ThreadOwner : {
     hdl: WideHandle<ProcessHandle>,
@@ -47,36 +47,36 @@ fn AddSecondaryPrincipal(ctx: *handle SecurityContext, principal: *const Uuid) -
 fn GrantKernelPermission(
     ctx: *handle SecurityContext,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 25;
 fn GrantThreadPermission(
     ctx: *handle SecurityContext,
     th: *handle ThreadHandle,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 26;
 fn GrantProcessPermission(
     ctx: *handle SecurityContext,
     ph: *handle ProcessHandle,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 27;
 fn DropKernelPermission(
     ctx: *handle SecurityContext,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 28;
 fn DropThreadPermission(
     ctx: *handle SecurityContext,
     th: *handle ThreadHandle,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 29;
 fn DropProcessPermission(
     ctx: *handle SecurityContext,
     ph: *handle ProcessHandle,
     perm: KStrCPtr,
-    status: c_long,
+    status: ilong,
 ) -> SysResult = 30;
 fn RevokeKernelPermission(ctx: *handle SecurityContext, perm: KStrCPtr) -> SysResult = 31;
 fn RevokeThreadPermission(
