@@ -25,6 +25,7 @@ impl FileVisitor for CBuilder {
         let _ = writeln!(self.file, "#ifdef __cplusplus");
         let _ = writeln!(self.file, "extern \"C\"{{");
         let _ = writeln!(self.file, "#endif /* __cplusplus */");
+        let _ = writeln!(self.file);
     }
 
     #[allow(unused_variables)]
@@ -44,6 +45,7 @@ impl FileVisitor for CBuilder {
         let _ = writeln!(self.file, "#endif /* __cplusplus */");
 
         let _ = writeln!(self.file, "#endif /* {} */", self.guard_var);
+        let _ = writeln!(self.file);
     }
 }
 
@@ -60,7 +62,7 @@ pub fn create_file_visitor(path: &Path, cookie: u64) -> CBuilder {
         guard_var.push_str("_");
     }
 
-    let _ = writeln!(guard_var, "{cookie:016X}");
+    let _ = write!(guard_var, "{cookie:016X}");
 
     CBuilder {
         file: String::new(),
