@@ -1,0 +1,4 @@
+
+const SUBSYS_PROCESS: u32 = 3; 
+
+fn ExitProcess(v: u64) -> ! = 0;
