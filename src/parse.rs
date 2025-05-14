@@ -116,6 +116,7 @@ fn id_to_ty<I: Iterator<Item = Token>>(id: String, iter: &mut Peekable<I>) -> Ty
                 "16" => IntWidth::Bits(nzlit!(16)),
                 "32" => IntWidth::Bits(nzlit!(32)),
                 "64" => IntWidth::Bits(nzlit!(64)),
+                "128" => IntWidth::Bits(nzlit!(128)),
                 _ => panic!("Expected a valid integer type, got {x}"),
             };
 

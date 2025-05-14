@@ -127,6 +127,8 @@ impl<'a> ItemVisitor for ItemWriter<'a> {
                 let _ = writeln!(self.inner, "typedef unsigned int __u32;");
                 let _ = writeln!(self.inner, "typedef signed long __i64;");
                 let _ = writeln!(self.inner, "typedef unsigned long __u64;");
+                let _ = writeln!(self.inner, "typedef signed __int128 __i128;");
+                let _ = writeln!(self.inner, "typedef unsigned __int128 __u128;");
 
                 let _ = writeln!(self.inner, "typedef signed long __ilong;");
                 let _ = writeln!(self.inner, "typedef unsigned long __ulong;");

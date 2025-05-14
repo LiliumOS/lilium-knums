@@ -1,0 +1,40 @@
+/// An operation was performed on an object that does not support the operation, or via a handle that does not support the operation, for example:
+/// * An I/O operation of a type that is not supported by the handle's characteristics (`IOWrite` on a non-writable handle, `IOSeek` or a random-access operation on a handle that is neither seekable nor random-access)
+/// * A device of the wrong type was used in a specialized I/O operation (IE. `GetClockOffset` applied to a filesystem device)
+/// * A property was queried or modified that does not apply to the object
+/// * A device was attempted to be created of a type that requires some operation but that operation is unsupported or invalid (Creating a block device from a non-random access `IOHandle`)
+/// * A device was opened as the wrong type.
+/// * A file was opened as writable on a filesystem mounted as read-only
+const UNSUPPORTED_OPERATION: i32 = (-0x00);
+/// An operation was performed that would block on a handle that is configured to perform asynchronous operation, and the operation was scheduled in the background
+const PENDING: i32 = (-0x03);
+/// An operation attempted to locate or access an object that does not exist, or locate an object through a path that does not exist or is not accessible.
+const DOES_NOT_EXIST: i32 = (-0x04);
+/// An operation required an object not being present or inaccessible found the object
+const ALREADY_EXISTS: i32 = (-0x05);
+/// An operation attempted to refer to a device that is not referrable by the current thread or does not exist.
+const UNKNOWN_DEVICE: i32 = (-0x06);
+/// An operation was performed that would block on a handle that is configured to not perform blocking operations.
+const WOULD_BLOCK: i32 = (-0x07);
+/// An write operation would cause a device to exceed it's storage capacity or configured storage limit
+const DEVICE_FULL: i32 = (-0x08);
+/// An operation attempted to access a device that is not able to respond to the operation
+const DEVICE_UNAVAILABLE: i32 = (-0x09);
+/// An operation that refers to a path encountered a loop in resolving symbolic links
+const LINK_RESOLUTION_LOOP: i32 = (-0x0A);
+
+/// An operation would have orphaned one or more objects,
+/// at least removed the only path to a strong reference to the object
+const ORPHANED_OBJECTS: i32 = (-0x0B);
+
+/// An operation was performed on an object that was closed remotely, such as:
+/// * An write operation was performed on a pipe or FIFO object and the read end of the pipe was closed
+/// * A read or write operation to an IPC Connection or a socket, and the remote end of the connection was closed
+/// * A read or write operation to a socket, and the connection was interrupted
+const CLOSED_REMOTELY: i32 = (-0x20);
+
+/// An operation was performed on an connection object, and the connection was interrupted or broken externally
+const CONNECTION_INTERRUPTED: i32 = (-0x21);
+
+/// A requested network address was not available
+const ADDRESS_NOT_AVAILABLE: i32 = (-0x22);
