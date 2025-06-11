@@ -45,6 +45,12 @@ pub struct Path {
     pub components: Vec<String>,
 }
 
+impl AsRef<Path> for Path {
+    fn as_ref(&self) -> &Path {
+        self
+    }
+}
+
 impl core::fmt::Debug for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut sep = if self.has_leading { "::" } else { "" };

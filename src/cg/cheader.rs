@@ -33,6 +33,7 @@ impl FileVisitor for CBuilder {
 
     #[allow(unused_variables)]
     fn visit_item(&mut self) -> impl ItemVisitor + '_ {
+        self.file.push_str("\n");
         ItemWriter {
             inner: &mut self.file,
         }
@@ -49,7 +50,10 @@ impl FileVisitor for CBuilder {
     }
 }
 
-pub fn write_misc(output: &std::path::Path) -> std::io::Result<()> {
+pub fn write_misc(
+    output: &std::path::Path,
+    paths: impl Iterator<Item: AsRef<Path>>,
+) -> std::io::Result<()> {
     Ok(())
 }
 

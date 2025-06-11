@@ -21,7 +21,7 @@ macro_rules! def_cg_types {
             let stamp_file = match name {
                 $(::core::stringify!($name) => {
                     std::fs::create_dir_all(output)?;
-                    $name::write_misc(output)?;
+                    $name::write_misc(output, files.keys())?;
                     for (path, file) in files {
                         let mut state = rand;
                         path.hash(&mut state);
@@ -49,4 +49,5 @@ macro_rules! def_cg_types {
 
 def_cg_types! {
     cg cheader;
+    cg markdown;
 }
