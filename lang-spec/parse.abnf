@@ -1,0 +1,61 @@
+
+bare-item := <item-struct> / <item-sysfn> / <item-const> / <item-use> / <directive> 
+
+item-struct := <struct-keyword> <ident> [<generics-def>] [":" *<struct-option>] <struct-body>
+
+struct-body := <struct-opaque-body> / <struct-fields>
+
+struct-opaque-body := "opaque" ["(" <type> ")"] ";"
+
+struct-fields := "{" [<struct-field> *("," <struct-field>) ["," [<struct-padding>]]] "}"
+
+struct-field := *<doc-comment> <ident> ":" <type>
+
+struct-padding := "pad" "(" <type> "," <expr> ")"
+
+item-sysfn := "fn" <ident> <fn-signature> "=" <expr> ";"
+
+item-const := "const" <ident> ":" <type> "=" <expr> ";"
+
+item-use := "use" <path> ";"
+
+path := <ident> / <path> "::" <ident>
+
+fn-signature := "(" [<fn-param> *("," <fn-param>) [","] ] ")" "->" <type>
+
+fn-param := [<ident> ":" ] <type>
+
+simple-type := ("(" <type> ")") / <named-type>
+
+type := <simple-type> / <pointer-type> / <fn-pointer-type> / <array-type> / "!"
+
+pointer-type := "*" ("const" / "mut" / "handle" / "shared_handle") <type>
+
+fn-pointer-type := "fn" <fn-signature>
+
+array-type := "[" <type> ";" <expr> "]"
+
+named-type := <ident> [<generics-type>]
+
+generics-type := <generic-list> / <alternate>
+
+generic-list := "<" [<type> *("," <type>) ","] ">"
+
+alternate := "!" <type>
+
+expr := <literal-expr> / <ident> / <unary-expr> / <non-binary-expr>
+
+binary-expr := <expr> <binary-op> <expr>
+
+; Precedence Order is 
+; High: `<<`, `>>`
+; ...: `&`, `|`, `^`
+; ...: `/`, `*`
+; Low: `+`, `-`
+binary-op := "<<" / ">>" / "&" / "|" / "^" / "/" / "*" / "+" / "-"
+
+unary-expr := <unary-op> <expr>
+
+unary-op := "+" / "-" / "!"
+
+literal-expr := <int-literal> / <uuid> 

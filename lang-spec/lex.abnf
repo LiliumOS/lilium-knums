@@ -38,4 +38,10 @@ int-literal = <hex-literal> / <dec-literal> / <oct-literal>
 
 punct := "=" / "*" / "+" / "-" / "^" / "&" / "|" / "<<" / ">>" / "<" / ">" / "->" / "{" / "}" / "[" / "]" / "(" / ")" / "/"
 
-token := <int-literal> / <uuid> / <punct> / <keyword> / <ident> / <doc-comment> / <inner-doc-comment>
+ascii-ident-begin := %x41-5A / %x61-7A / "_"
+
+ascii-ident-continue := <ascii-ident-begin> / %x30-39
+
+direcitve := "%" <ascii-ident-begin> *<ascii-ident-continue> <newline>
+
+token := <int-literal> / <uuid> / <punct> / <keyword> / <ident> / <doc-comment> / <inner-doc-comment> / <directive>
