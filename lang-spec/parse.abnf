@@ -17,7 +17,7 @@ item-sysfn := "fn" <ident> <fn-signature> "=" <expr> ";"
 
 item-const := "const" <ident> ":" <type> "=" <expr> ";"
 
-item-use := "use" <path> ";"
+item-use := ["inline"] "use" <path> ";"
 
 path := <ident> / <path> "::" <ident>
 
