@@ -1,5 +1,0 @@
-%def_sysno
-
-use process::hdl;
-use process::exit;
-use process::mem;

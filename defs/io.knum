@@ -1,4 +1,0 @@
-%def_sys_proto
-
-use io::sysnum;
-use io::errnum;

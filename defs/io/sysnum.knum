@@ -1,9 +1,0 @@
-%def_sysno
-
-use types;
-
-const SUBSYS_IO: u32 = 2;
-
-use io::hdl;
-use io::io;
-use io::errnum;

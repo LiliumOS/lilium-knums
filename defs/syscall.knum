@@ -1,3 +1,0 @@
-%def_syscall_num_helpers
-
-use base::syscall;

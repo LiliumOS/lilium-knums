@@ -1,6 +1,0 @@
-use types::int;
-
-struct Duration {
-    seconds: i64,
-    nanos_of_second: u32,
-}
