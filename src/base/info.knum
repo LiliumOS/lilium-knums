@@ -1,0 +1,9 @@
+
+
+/// Queries information about the current system.
+///
+/// ## Errors 
+/// * `INVALID_MEMORY` if any memory pointed 
+fn GetSystemInfo(kslice: KSliceMut<SysInfoRequest>) -> SysResult = 48;
+
+fn GetProcessorInfo(proc_id: i32, kslice: KSliceMut<ProcInfoRequest>) -> SysResult = 49;

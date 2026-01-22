@@ -1,0 +1,52 @@
+
+/// A `KSlice<T>` is a const pointer to a fixed size buffer of type `T`. 
+/// 
+/// `ptr` is a pointer to an array of `len` elements of type `T`. 
+/// `len` is the number of elements
+/// 
+/// ## Associated Errors
+/// 
+/// When `KSlice<T>` is used by a system function:
+/// 
+/// * If `ptr` cannot be read for `len` elements of type `T`, or another memory access error occurs, the system function returns `INVALID_MEMORY`
+struct KSlice<T> {
+    ptr: *const T!void,
+    len: usize,
+}
+
+/// A `KSliceMut<T>` is a mutable pointer to a fixed size buffer of type `T`. The elements may be written, and/or read by the system function.
+/// 
+/// `ptr` is a pointer to an array of `len` elements of type `T`. 
+/// `len` is the number of elements
+/// 
+/// ## Associated Errors
+/// 
+/// When `KSliceMut<T>` is used by a system function:
+/// 
+/// * If `ptr` cannot be read or written for `len` elements of type `T`, or another memory access error occurs, the system function returns `INVALID_MEMORY`
+struct KSliceMut<T> {
+    ptr: *mut T!void,
+    len: usize,
+}
+
+
+/// `KSliceBuf<T>` is a structure type that is used to return array elements of type `T`. 
+/// 
+/// `buf` is a pointer to (userspace) memory that will be populated by the system function. `len` is the length of the buffer in a count of elements of type `T`.
+/// 
+/// `KSliceBuf<T>` will always appear in system interfaces by mutable indirection (e.g. behind a `*mut`). 
+/// When a system function succesfully returns, `len` is set to the size of the string written to `buf`. If a system function unsucessfully returns (typically with `INVALID_LENGTH` error), `len` is either the same value as on entry and buf is not modified, or `len` is set to the length of the string the system function attempted to write to the buffer. 
+/// 
+/// Where `len< orig_len`, the elements between `len..orig_len` are undefined.
+/// 
+/// ## Associated Errors
+/// 
+/// When `KSliceBuf<T>` is used by a system function:
+/// 
+/// * If `len` is insufficient to write the required string, `INVALID_LENGTH` is returned (`len` is always overwritten in this case),
+/// * If `buf` is not writable for N elements, where N is the number of elements written by the system function (max of `len` bytes), `INVALID_MEMORY` is returned,
+/// * If `buf` is not writable for `len` elements, or another memory access error is detected, `INVALID_MEMORY` may be returned.
+struct KSliceBuf<T> {
+    buf: *mut T!void,
+    len: ulong
+}

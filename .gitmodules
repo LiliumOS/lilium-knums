@@ -1,0 +1,3 @@
+[submodule "knums-tool-new"]
+	path = knums-tool-new
+	url = https://github.com/LiliumOS/knums-tool-new.git

@@ -1,0 +1,40 @@
+use types::int;
+
+/// `KStr` is a structure type that is used to pass text to the kernel. 
+/// `buf` is a pointer to a UTF-8 string that is **not null terminated**. `len` is the length of the buffer. 
+///
+/// ## Associated Errors
+///
+/// When a `KStr` is used by a system function:
+/// 
+/// * If `len` bytes starting from `buf` does valid UTF-8, the system function returns `INVALID_STRING`,
+/// * If `buf` does not point to readable memory for `len` bytes, or another memory access error occurs, the system function returns `INVALID_MEMORY`.
+struct KStr {
+    buf: *const char,
+    len: ulong
+}
+
+/// `KStrBuff` is a structure type that is used to return text from the kernel to userspace. 
+/// 
+/// `buf` is a pointer to (userspace) memory that will be populated by the system function. `len` is the length of the buffer.
+/// 
+/// `KStrBuf` will always appear in system interfaces by mutable indirection (e.g. behind a `*mut`). 
+/// When a system function succesfully returns, `len` is set to the size of the string written to `buf`. If a system function unsucessfully returns (typically with `INVALID_LENGTH` error), `len` is either the same value as on entry and buf is not modified, or `len` is set to the length of the string the system function attempted to write to the buffer. If there error is `INVALID_LENGTH`, then buf is guaranteed to be written in such a manner that (where `orig_len` represents the value of `len` at entry):
+/// * The first `n<=orig_len` bytes written to `buf` contains valid UTF-8, and
+/// * The bytes in `n..orig_len`, if non-empty, form a valid prefix of some valid UTF-8 character.
+/// 
+/// (That is, when `len` is overwritten and the function returns `INVALID_LENGTH`, the buffer is overwritten with valid UTF-8 that is truncated at `orig_len`)
+/// 
+/// Where `len< orig_len`, the bytes between `len..orig_len` are undefined.
+/// 
+/// ## Associated Errors
+/// 
+/// When `KStrBuf` is used by a system function:
+/// 
+/// * If `len` is insufficient to write the required string, `INVALID_LENGTH` is returned (`len` is always overwritten in this case),
+/// * If `buf` is not writable for N bytes, where N is the number of bytes written by the system function (max of `len` bytes), `INVALID_MEMORY` is returned,
+/// * If `buf` is not writable for `len` bytes, or another memory access error is detected, `INVALID_MEMORY` may be returned.
+struct KStrBuf {
+    buf: *const char,
+    len: ulong
+}

@@ -1,0 +1,93 @@
+
+use types::result;
+
+/// Operation failed due to insufficient permission, for example:
+/// * An access was performed to a file or device that is denied by its DACL,
+/// * An operation tried to grant a permission or handle right that was not available to the current security context,
+/// * An operation on another object was attempted via a handle, but the right to perform that operation was denied.
+const PERMISSION: SysResult = -1;
+
+
+/// An Operation Expected a Handle but one of the following occured:
+/// * A null handle was provided, and the operation does not have specified behaviour for a null handle
+/// * A handle of that wrong type was provided
+/// * A value that was not a handle was provided
+/// * A handle belonging to another thread was provided, and this error is detected by the kernel,
+/// * A handle that was previously closed was provided, and this error is detected by the kernel.
+///
+/// As handle values can be reused, the bottom two cases may not be detected if the same value is yielded by two separate handle producing operations.
+/// Passing closed handles or handles from another thread to a system function is userspace undefined behaviour.
+const INVALID_HANDLE: SysResult = -2;
+
+/// A pointer argument refers to memory that is not valid to access for the current thread:
+/// * A pointer argument was null, and a null pointer was not accepted by the operation
+/// * A pointer argument points to a non-existant mapping
+/// * A pointer argument refers to kernel memory
+/// * A pointer argument refers to a mapping that was removed, or part of a mapping that was truncated, and no new mapping was created
+/// * A pointer argument refers to a handle, and this error was detected by the kernel
+/// * A pointer argument referred to a valid mapping but the operation to be performed was invalid on memory in that mapping (i.e. a write operation to a read-only page, or trying to execute a non-executable page)
+/// * A pointer argument has an alignment constraint that was violated, and this error is detected by the kernel.
+/// * A pointer argument is valid for fewer bytes than was expected, and this error was detected by the kernel.
+/// * A pointer argument referred to valid memory that is reserved for the kernel (such as memory being modified by an asynchronous IO operation), and this error was detected by the kernel.
+///
+/// Checks for alignment, validity, reservation (for handles or userspace memory reserved for the kernel) are a best effort basis.
+/// The kernel generally does not know the precise extent of memory validity and can only be granular to the page boundary.
+/// As such, it is possible for a pointer to exceed the bounds of an object it is intended to point into without this error being detected by the kernel,
+/// Such an operation causes userspace undefined behaviour
+const INVALID_MEMORY: SysResult = -3;
+
+/// An attempt was made to perform an operation that does not exist, or perform an operation on an object that does not allow that operation.
+/// Note that this differs from `PERMISSION` in that `PERMISSION` is returned when the current thread is not allowed to perform the operation,
+/// but `INVALID_OPERATION` is returned when the operation cannot be performed regardless of permissions.
+const INVALID_OPERATION: SysResult = -5;
+
+
+/// An operation expected a string but recieved non-UTF-8 text.
+const INVALID_STRING: SysResult = -6;
+
+/// An operation expected a string or slice buffer, but the length field indicated fewer elements then the operation attempted to write.
+/// The length field is updated to the expected length and the operation may be retried after extending the available memory accordinly
+///
+/// When this error is returned, and the syscall accepts multiple mutable strings or slices, the behaviour is kernel and syscall dependant, but is either:
+/// * The function stops processing immediately after setting the length field for the failing string, and no further strings are modified,
+/// * The function continues processing up to a certain number of failures (which can be unbounded), and updates at least all string/slices with insufficient length fields.
+///
+/// The function typically does not report how many insufficient length fields were updated in total.
+///
+/// Regardless of the failure behaviour, if multiple mutable strings/slices are encountered,
+/// the order they are checked and updated for insufficient length conditions is not specified
+const INSUFFICIENT_LENGTH: SysResult = -7;
+
+/// A thread attempted to acquire a resource but its active security context imposes a limit on that resource that has been exhausted by threads sharing the limit.
+const RESOURCE_LIMIT_EXHAUSTED: SysResult = -8;
+
+/// An operation was performed on an object that is an incorrect state for that operation,
+///  or an argument (other than a handle) was in an invalid state or had an invalid value for the operation.
+const INVALID_STATE: SysResult = -9;
+
+/// An extended option specifier was provided to an operation that was invalid, for example:
+/// * The option has a unrecognized type, and the option was not marked as ignorable
+/// * The option sets any reserved (undefined) flag bits
+/// * Any reserved field of the option header is not set to 0
+/// * The payload of the option contains invalid data
+const INVALID_OPTION: SysResult = -10;
+
+/// An operation was performed that required allocating memory for either the process or the kernel, and the allocation failed for a reason other than a specified resource limit, such as:
+/// * The available physical memory on the system is exhausted and insufficient memory could be reacquired for the process,
+/// * The available virtual memory region the kernel attempted to allocate for a resource was full,
+/// * Allocation for any page tables used to allocate virtual memory failed (note that this cause in particular may be the result of exhausting the threads `AllocateThreadKMem` resource limit)
+/// * Allocating physical memory needed to back the allocation would exceed the current thread resource limits
+const INSUFFICIENT_MEMORY: SysResult = -11;
+
+/// Indicates that a system call number is invalid/unrecognized by the kernel, a system call operation is not supported in the current kernel build configuration,
+/// or platform restrictions prevented performing a given system call
+///
+/// This differs from `INVALID_OPERATION` in that it specifically detects issues with the SCI function itself, rather than a specific operation requested to be performed by the SCI function.
+/// Generally, this is not returned by USI wrappers (but may if the USI is run on an older kernel version), or if special security measures are in place
+///
+/// Note that some cases of platform restrictions may return `INVALID_OPERATION` instead.
+const UNSUPPORTED_KERNEL_FUNCTION: SysResult = -12;
+
+/// A potentially blocking system call was performed when a call expects a system call not to block
+const KERNEL_FUNCTION_WOULD_BLOCK: SysResult = -13;
+

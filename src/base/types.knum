@@ -1,0 +1,3 @@
+inline use base::types::str;
+inline use base::types::slice;
+inline use base::option;

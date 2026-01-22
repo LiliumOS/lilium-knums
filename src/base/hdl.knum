@@ -1,0 +1,127 @@
+//! Handles are the core of Lilium's object model. 
+//! Each thread gains access to objects via a handle pointer, which logically points to that object. 
+//! A handle is a thread-local resource, which cannot be implicitly shared with other processes or threads (even via shared memory). 
+//! 
+//! Handles are typed, both statically and dynamically. 
+//! The type of the handle depends on the type of the object it refers to and the operations that can be performed on it.
+
+inline use types::hdl;
+
+/// A `WideHandle<H>` is a 0-padded handle pointer that is the same width as wide as a `Uuid`.
+/// Any non-null handle stored in a `WideHandle<H>` is guaranteed not to have the same representation as a valid UUID.
+///
+/// Note: Where pointers are 128-bit, the handling of `WideHandle<H>` is not yet decided.
+pub struct WideHandle<H> {
+    hdl: *handle H!Handle,
+    pad([ulong; (16 / __SIZEOF_POINTER__) - 1])
+}
+
+/// `IdentifyHandle` is used to dynamically determine the type of a handle.
+/// For a non-error result, the bottom 16 bits contains the type, and the top 15 bits contains the subtype (if applicable).
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the input is not a live handle value on the current thread.
+fn IdentifyHandle(hdl: *handle Handle) -> SysResult = 0;
+
+/// Creates a new shared handle that can be upgraded on other threads. It is process-local rather than thread-local.
+/// A shared handle has the same rights as the handle passed as the input at the time of the `ShareHandle` call. 
+/// The shared handle and all handles created from it then have separate rights information 
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the input is not a live handle value on the current thread.
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the shared handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the shared handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_SHARED_HANDLES"` for the current security context would be exceeded by this operation.
+fn ShareHandle(hdl: *handle Handle) -> SysResult2<*shared_handle Handle> = 1;
+
+/// Upgrades a shared handle to a normal handle that can be used for object operations
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the input is not a live shared handle value on the current thread.
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+fn UpgradeSharedHandle(hdl: *shared_handle Handle) -> SysResult2<*handle Handle> = 2;
+
+/// Releases the provided shared handle. Use of it by any thread in the process after this point is undefined behaviour.
+/// Note that this does not also release any handle that has been upgraded from it already
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the input is not a live shared handle value on the current thread.
+/// * `PERMISSION`: If the process permission `"RELEASE_SHARED_HANDLE"` to the current process is denied in the current security context.
+fn ReleaseSharedHandle(hdl: *shared_handle Handle) -> SysResult = 3;
+
+/// Checks if the right specified by `right` is available on the thread. 
+/// Returns `0` on success.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread
+/// * `INVALID_MEMORY`: If accessing `right` causes a memory error
+/// * `INVALID_STRING`: If the string pointed to by `right` is not valid UTF-8.
+/// * `PERMISSION`: If `right` is not a recognized handle right for the type of `hdl`
+/// * `PERMISSION`: If `right` is denied to `hdl`.
+fn CheckHandleRight(hdl: *handle Handle, right: KStr) -> SysResult = 8;
+
+/// Drops the specified handle right. Succeeds even if the right is not present
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread
+/// * `INVALID_MEMORY`: If accessing `right` causes a memory error
+/// * `INVALID_STRING`: If the string pointed to by `right` is not valid UTF-8.
+fn DropHandleRight(hdl: *handle Handle, right: KStr) -> SysResult = 9;
+
+/// Drops all handle rights. Note that this will make most operations fail.
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE*: If `hdl` is not a live handle on the current thread.
+fn DropAllHandleRights(hdl: *handle Handle) -> SysResult = 10;
+
+/// Reperforms all permission checks for the type of the handle that were preformed on the creation of the handle, using the current security context.
+/// Existing rights are not dropped, but new rights may be granted.
+/// 
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread.
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+fn RecheckPermissions(hdl: *handle Handle) -> SysResult = 11;
+
+/// Attempts to grant the specified handle right `right to `hdl`.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread
+/// * `INVALID_MEMORY`: If accessing `right` causes a memory error
+/// * `INVALID_STRING`: If the string pointed to by `right` is not valid UTF-8.
+/// * `PERMISSION`: If `right` is not a valid handle right for the type of `hdl`
+/// * `PERMISSION`: If the permission check for the specified right fails.
+fn GrantHandleRight(hdl: *handle Handle, right: KStr) -> SysResult = 12;
+
+/// Duplicates `hdl`, and returns a handle that refers to the same object, but has a distinct set of handle rights.
+/// The initial set of rights of the returned handle are those granted to `hdl`, but can be changed independantly after this call
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread.
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+fn DuplicateHandle(hdl: *handle Handle) -> SysResult2<*handle Handle> = 13;
+
+/// Closes `hdl`, freeing the associated resources. 
+/// This is generally sufficient to clean up, however, it may not perform specialised tasks (such as flushing a buffer, or joining a thread or process) that requires blocking or may error.
+///
+/// The associated object is only released once all live handles have been closed. Note that all handles owned by a thread are closed implicitly on thread termination,
+///  and all shared handles owned by a process are closed implicitly on process termination (as process termination also terminates all of its threads, those handles are closed as well). 
+/// 
+/// ## Errors
+/// 
+/// `INVALID_HANDLE`: If `hdl` is not a live handle on the current thread.
+fn CloseHandle(hdl: *handle Handle) -> SysResult = 14;

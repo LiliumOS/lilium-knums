@@ -1,0 +1,320 @@
+//! The permission model of Lilium is based on security contexts. 
+//! A Security Context is set per-thread and contains a set of permissions. 
+//! Each permission has a given object, which may be the kernel, a process, or a thread.
+//!
+//! A Security Context can be operated on via a handle, and have permissions added or subtracted, the principle set changed, or the resource limits modified.
+//!
+//! ## Endorsed Security Contexts
+//! A Security Context Handle has two "modes": Endorsed, and unendorsed. 
+//! An Endorsed handle can be installed via the `InstallSecurityContext` function, and an unendorsed handle cannot be installed until endorsed.
+//! 
+//! A Handle's endorsement mode is determined by the presence of the `"ENDORSED"` right - if this right is present, it is an endorsed handle, otherwise it is unendorsed.
+//! When a handle is endorsed, certain modifications will trigger permission errors, as described by the "Permission Check" section of each function's documentation.
+//! These checks are omitted on an unendorsed handle and are performed when the `"ENDORSED"` right is granted, unless the kernel permission `"UNCONTROLLED_ENDORSEMENT"` is granted by the current security context.
+//! Most processes, even SYSTEM processes running with high privileges, will not have this permission, and on most systems it is reserved to the highest priority and highest privilege processes, like session-logon-service.
+//!  
+//! Unendorsed handles may be useful for establishing permission "requests" - 
+//! a process that grants permissions may require an unendorsed security context handle as the "Request", which, if whatever permission checks it performs succeeds, is endorsed and returned.
+//! 
+//! Note that functions like `CheckKernelPermission` will operate the same on unendorsed handles vs. endorsed ones. 
+//! Likewise, functions that check for a princpal or retrieve the list of principals on a security context handle will succeed.
+//! Thus, highly privileged processes using that function should be aware not to rely on permission checks on handles passed from unprivileged code without also checking whether the handle is endorsed
+/// 
+/// When a previously endorsed Security Context drops the `"ENDORSED"` right, it remembers all permissions and resource limits it previously had. 
+/// Any modifications are subequently permission checked when the `"ENDORSED"` is granted again. The permission checks are as-if all of the operations were performed in the same context as the `GrantHandleRight` call.
+/// 
+/// Note that the `RecheckPermissions` function does not affect the `"ENDORSED"` right. 
+
+use base::hdl;
+use base::types::str;
+
+use process::hdl;
+
+struct SecurityContextHandle : opaque(Handle);
+
+/// A `PermissionObject` is used for the `Grant{Thread,Process}Permission`, `Drop{Thread,Process}Permssion`, and `Revoke{Thread,Process}Permission`. 
+/// It identifies a scope for the thread or process to be modified.
+union PermissionObject {
+    /// Identifies a specific thread. This is valid only for functions that operate on thread permissions.
+    /// Identifies the object directly.
+    thread: WideHandle<ThreadHandle>,
+    /// Identifies a process. 
+    /// For functions that operate on process permissions, this identifies the object directly.
+    /// For functions that operate on thread permissions, implies a default permission for all threads in the process.
+    process: WideHandle<ProcessHandle>,
+    /// Identifies a principal that owns the thread or process.
+    /// This uses the primary principal of the installed security context for the thread or process, and implies a default permission for all threads or processes that have such a primary principal.
+    owning_principal: Uuid,
+}
+
+
+/// Creates an empty security Context handle with no permissions and no primary principle
+/// The context does not have the `"ENDORSED"` right, and thus can be freely modified.
+///
+/// ## Errors
+///
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+fn CreateSecurityContext() -> SysResult2<*handle SecurityContextHandle> = 16;
+
+/// Creates an empty security Context handle with no permissions.
+/// The context has the `"ENDORSED"` right.
+///
+/// ## Errors
+///
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+fn GetCurrentSecurityContext() -> SysResult2<*handle SecurityContextHandle> = 19;
+
+/// Checks if `hdl` has the kernel permission `perm`. 
+/// If `hdl` is null, checks against the current thread's security context.
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: if `perm` is not granted to `hdl`
+/// * `PERMISSION`: If `hdl` is null and `perm` is not granted to the current security context
+/// * `PERMISSION` if `perm` is not a recognized kernel permission
+fn CheckKernelPermission(hdl: *handle SecurityContextHandle, perm: KStr) -> SysResult = 20;
+
+/// Checks if `hdl` has the process permission `perm` to the identified process (or the current process)
+/// If `hdl` is null, checks against the current thread's security context.
+/// If `proc` is null, treats the current process as the object.
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and does not refer to a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `proc` is non-null, and does not refer to a live `ProcessHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if `perm` points to invalid UTF-8
+/// * `PERMISSION`: if `perm` is not granted to `hdl`
+/// * `PERMISSION`: If `hdl` is null and `perm` is not granted to the current security context
+/// * `PERMISSION`: if `perm` is not a recognized process permission
+/// * `PERMISSION`: if the handle right `"IDENTIFY"` is not granted to `proc`.
+/// * `PERMISSION`: if `proc` is null, and the `"IDENTIFY"` permission for the current process is denied to the current security context.
+fn CheckProcessPermission(hdl: *handle SecurityContextHandle, perm: KStr, proc: *handle ProcessHandle) -> SysResult = 21;
+
+
+/// Checks if `hdl` has the process permission `perm` to the identified thread (or the current thread)
+/// If `hdl` is null, checks against the current thread's security context.
+/// If `thread` is null, treats the current thread as the object.
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_HANDLE`: If `thread` is non-null, and does not refer to a live `ProcessHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: if `perm` is not granted to `hdl`
+/// * `PERMISSION`: If `hdl` is null and `perm` is not granted to the current security context
+/// * `PERMISSION`: if `perm` is not a recognized thread permission
+/// * `PERMISSION`: if the handle right `"IDENTIFY"` is not granted to `thread`.
+fn CheckThreadPermission(hdl: *handle SecurityContextHandle, perm: KStr, thread: *handle ThreadHandle) -> SysResult = 22;
+
+
+/// If `perm` is a recognized kernel permission, grants it to `hdl`.
+/// A null handle identifies the current security context (however, no operation is performed in that case, as the operation is redundant if the permission already exists, and fails otherwise)
+/// This behaviour is for consistency with `GrantProcessPermission` and `GrantThreadPermission`, as well as the `Drop` and `Revoke` functions, 
+///  which do have non-trivial behaviour when operating on the current security context.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `perm` was previously revoked to `hdl`.
+/// * `PERMISSION`: If `perm` is not a recognized kernel permission
+/// * `PERMISSION`: If `hdl` is an endorsed handle and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `hdl` is null and `perm` is denied to the current security context.
+fn GrantKernelPermission(hdl: *handle SecurityContextHandle, perm: KStr) -> SysResult = 23;
+
+/// If `perm` is a recognized process permission, grants it to `hdl`.
+/// A null handle identifies the current security context. 
+/// The operation is allowed in that case if the permission granted is implied by the current permissions. 
+/// If the permission is granted for a principal's processes, for example, it can be used to grant permission explicitly to a particular process (and then the default permission may be dropped with explicit access retained)
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `perm` was previously revoked to `hdl`.
+/// * `PERMISSION`: If `perm` is not a recognized process permission
+/// * `PERMISSION`: If `hdl` is an endorsed handle and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `hdl` is null and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `object` refers to a process, and the handle right `"IDENTIFY"` is denied to that handle.
+fn GrantProcessPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 24;
+
+/// If `perm` is a recognized thread permission, grants it to `hdl`.
+/// A null handle identifies the current security context. 
+/// The operation is allowed in that case if the permission granted is implied by the current permissions. 
+/// If the permission is granted for a principal's processes, for example, it can be used to grant permission explicitly to a particular process (and then the default permission may be dropped with explicit access retained)
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` or `ThreadHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `perm` was previously revoked to `hdl`.
+/// * `PERMISSION`: If `perm` is not a recognized process permission
+/// * `PERMISSION`: If `hdl` is an endorsed handle and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `hdl` is null and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `object` refers to a `ProcessHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+/// * `PERMISSION`: If `object` refers to a `ThreadHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+fn GrantThreadPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 25;
+
+/// If `perm` is a recognized kernel permission, drops it from `hdl`. Else, it is ignored.
+/// A null handle identifies the current security context.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+fn DropKernelPermission(hdl: *handle SecurityContextHandle, perm: KStr) -> SysResult = 26;
+
+/// If `perm` is a recognized kernel permission, drops it from `hdl`.
+/// A null handle identifies the current security context. 
+///
+/// Permissions are dropped and granted in pairs - an explicit permission grant is reversed by a drop. This matches the object identically - 
+///  a default permission is not dropped by dropping a permission by handle, either entirely, nor the process identified by that. Use `RevokeProcessPermission` for that instead.
+/// 
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `hdl` is null and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `object` refers to a process, and the handle right `"IDENTIFY"` is denied to that handle.
+fn DropProcessPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 27;
+
+/// If `perm` is a recognized kernel permission, drops it from `hdl`.
+/// A null handle identifies the current security context. 
+///
+/// Permissions are dropped and granted in pairs - an explicit permission grant is reversed by a drop. This matches the object identically - 
+///  a default permission is not dropped by dropping a permission by handle, either entirely, nor the process identified by that. Use `RevokeProcessPermission` for that instead.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` or `ThreadHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `object` refers to a `ProcessHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+/// * `PERMISSION`: If `object` refers to a `ThreadHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+fn DropThreadPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 28;
+
+/// If `perm` is a recognized kernel permission, revokes it to `hdl`. Else, it is ignored.
+/// A null handle identifies the current security context.
+///
+/// A revoked permission cannot be granted again, attempting such will fail with `PERMISSION`.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+fn RevokeKernelPermission(hdl: *handle SecurityContextHandle, perm: KStr) -> SysResult = 26;
+
+/// If `perm` is a recognized kernel permission, grants it to `hdl`.
+/// A null handle identifies the current security context. 
+///
+/// A revoked permission cannot be granted again, attempting such will fail with `PERMISSION`. 
+/// Revoking a permission also revokes all permissions it implies, and prevents having the permission even if implied by another permission. 
+/// For example, granting a permission by principal then revoking it by handle allows the permission for all processes owned by that handle *except* for the process identified by the handle.
+/// 
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `hdl` is null and `perm` is denied to the current security context.
+/// * `PERMISSION`: If `object` refers to a process, and the handle right `"IDENTIFY"` is denied to that handle.
+fn RevokeProcessPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 27;
+
+/// If `perm` is a recognized kernel permission, grants it to `hdl`.
+/// A null handle identifies the current security context. 
+///
+/// A revoked permission cannot be granted again, attempting such will fail with `PERMISSION`. 
+/// Revoking a permission also revokes all permissions it implies, and prevents having the permission even if implied by another permission. 
+/// For example, granting a permission by principal then revoking it by handle allows the permission for all processes owned by that handle *except* for the process identified by the handle.
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live `SecurityContextHandle` for the current thread.
+/// * `INVALID_HANDLE`: If `object` is not a valid non-null UUID, and is not a live `ProcessHandle` or `ThreadHandle` for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_MEMORY`: If `object` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `object` refers to a `ProcessHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+/// * `PERMISSION`: If `object` refers to a `ThreadHandle`, and the handle right `"IDENTIFY"` is denied to that handle.
+fn RevokeThreadPermission(hdl: *handle SecurityContextHandle, perm: KStr, object: *const PermissionObject) -> SysResult = 28;
+
+/// Sets the Resource Limit `resource_limit` for the current security context to `limit`. For an endorsed handle, a Resource Limit may be set to any value up to the greater of the handles limit, 
+///  and the limit of the current security context.
+/// A null handle identifies the current security context
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `PERMISSION`: If `resource_limit` is not a valid resource limit,
+/// * `PERMISSION`: If `hdl` is a non-null endorsed handle, `limit` is a value greater the current limit for `hdl`, and `limit` is greater than the limit for the current security context.
+fn SetResourceLimit(hdl: *handle SecurityContextHandle, resource_limit: KStr, limit: ulong) -> SysResult = 29;
+
+/// Queries the resource limit `resource_limit`. If the limit is not recognized, returns `0`.
+///  A null handle identifies the current security context
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+fn GetResourceLimit(hdl: *handle SecurityContextHandle, resource_limit: KStr) -> SysResult<ulong> = 30;
+
+/// Queries the resource limit `resource_limit`. If the limit is not recognized, returns `0`.
+///  A null handle identifies the current security context
+///
+/// ## Errors
+/// 
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `INVALID_MEMORY`: if any memory pointed to by `perm` cannot be accessed.
+/// * `INVALID_STRING`: if perm points to invalid UTF-8
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If `resource_limit` does not identify a recognized resource limit.
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If `minimum` is greater than the limit `resource_limit` for `hdl`.
+fn CheckResourceLimit(hdl: *handle SecurityContextHandle, resource_limit: KStr, minimum: ulong) -> SysResult = 31;
+
+/// Detaches resource limit tracking from `hdl`. By default, when a new thread or process is spawned, it inherits the same resource limit tracking context as the security context it inherits, even if its limits change.
+/// This function causes the two to become tracked independantly.
+/// Note that only certain resource limits are tracked between processes, or between threads. 
+///
+/// ## Errors
+///
+/// * `INVALID_HANDLE`: If the `hdl` is non-null, and is not a live handle value for the current thread.
+/// * `PERMISSION` if hdl is a non-null endorsed handle, and the `"DETACH_RESOURCE_LIMITS"` kernel permission is denied to the current security context.
+fn DetachResourceLimits(hdl: *handle SecurityContextHandle) -> SysResult = 32;
+
+
+/// Installs `hdl` as the current security context.
+///
+/// ## Errors 
+/// * `INVALID_HANDLE`: If `hdl` is not a live handle value for the current thread.
+/// * `PERMISSION`: If `hdl` does not have the `"ENDORSED"` handle right.
+/// * `PERMISSION`: If installing `hdl` would grant any permissions currently denied to the current security context,
+///    or increase any resource limit above the limit of the current security context, and the `"INSTALL_SECURITY_CONTEXT_NEW_PERMISSIONS"` kernel permission is denied to the current security context.
+fn InstallSecurityContext(hdl: *handle SecurityContextHandle) -> SysResult = 33;
+

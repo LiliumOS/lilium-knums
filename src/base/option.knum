@@ -1,0 +1,23 @@
+
+use types::uuid;
+
+/// The `ExtendedOptionHead` type defines the header for option types - an option is this header followed by some payload up to a defined maximum for the option group type.
+/// ## Associated Errors
+/// When an option type is passed to a system function:
+/// * Returns `INVALID_OPTION` if any padding bytes are set,
+/// * Returns `INVALID_OPTION` if any unknown bit of `flags` is set,
+/// * Returns `INVALID_OPTION` if `ty` contains an option unknown to the kernel, and `flags` does not set `OPTION_FLAG_IGNORE`
+struct ExtendedOptionHead : align(32) {
+    /// `ty` refers to a unique identifier that identifies the option. 
+    /// The NIL UUID is reserved. Otherwise, any valid UUID may be used (See [IETF RFC 9562] for accepted processes for generating UUIDS - note that the use of v8 UUIDs is not recommended).
+    ty: Uuid,
+    /// `flags` contains flags for defining the behaviour of the option. The top 16 bits is reserved per type. 
+    /// Flag `OPTION_FLAG_IGNORE` controls the behaviour of unrecognized option values. All other flags must be 0.
+    flags: u32,
+    pad([u32; 3])
+}
+
+/// Controls the behaviour of options with an unrecognized type. If this flag is set, an option unrecognized by the kernel is ignored and not acted on.
+/// If this flag is clear, an option unrecognized by the kernel causes an error. 
+/// For mutable option types, this flag is cleared by the kernel when it operates on an option it knows.
+const OPTION_FLAG_IGNORE: u32 = 0x0000_0001;
