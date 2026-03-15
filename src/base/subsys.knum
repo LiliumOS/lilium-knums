@@ -1,0 +1,3 @@
+use types::int;
+
+const BASE_SUBSYS_NUMBER: u32 = 0;

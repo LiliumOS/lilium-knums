@@ -1,9 +1,44 @@
 
+use base::types::slice;
+use base::option;
+use types::int;
+use types::uuid;
+use types::result;
+
+struct SysInfoRequestArchInfo : option(U{416eed18-85ca-53c9-849f-4b54bb0568b7}) {
+    arch_id: Uuid,
+    arch_version: u32,
+}
+
+struct SysInfoRequestOsVendor : option(U{22c479ab-c119-58d5-9c1e-fa03ddf9426a}) {
+    /// The name of the OS vendor
+    osvendor_name: KStrPtr,
+    /// The major OS version.
+    os_major: u32,
+    /// The minor os version
+    os_minor: u32,
+}
+
+
+union ProcInfoRequest : option_head(64) {
+
+}
+
+union SysInfoRequest : option_head(64) {
+    common_processor_info: ProcInfoRequest,
+}
+
+/// Flag bit for `SysInfoRequest` and `ProcInfoRequest`. that indicates that the option should be skipped as if the type is not recognized.
+/// This prevents the kernel from servicing the request. If set without the header flag `OPTION_FLAG_IGNORE`, the result is an error.
+const SYSINFO_OPTION_FLAG_SKIP: u32 = 0x10000;
 
 /// Queries information about the current system.
 ///
 /// ## Errors 
-/// * `INVALID_MEMORY` if any memory pointed 
+/// * `INVALID_MEMORY` if any memory pointed to by kslice is invalid
+/// * `INVALID_OPTION`, if any option has an invalid header
+/// * `INVALID_OPTION`, if any option not marked `OPTION_FLAG_IGNORE` has an unknown type
+/// * `INVALID_OPTION`, if any option not marked `OPTION_FLAG_IGNORE` is marked `SYSINFO_OPTION_FLAG_SKIP`.
 fn GetSystemInfo(kslice: KSliceMut<SysInfoRequest>) -> SysResult = 48;
 
 fn GetProcessorInfo(proc_id: i32, kslice: KSliceMut<ProcInfoRequest>) -> SysResult = 49;

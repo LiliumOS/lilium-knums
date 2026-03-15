@@ -17,7 +17,7 @@
 //! a process that grants permissions may require an unendorsed security context handle as the "Request", which, if whatever permission checks it performs succeeds, is endorsed and returned.
 //! 
 //! Note that functions like `CheckKernelPermission` will operate the same on unendorsed handles vs. endorsed ones. 
-//! Likewise, functions that check for a princpal or retrieve the list of principals on a security context handle will succeed.
+//! Likewise, functions that check for a principal or retrieve the list of principals on a security context handle will succeed.
 //! Thus, highly privileged processes using that function should be aware not to rely on permission checks on handles passed from unprivileged code without also checking whether the handle is endorsed
 /// 
 /// When a previously endorsed Security Context drops the `"ENDORSED"` right, it remembers all permissions and resource limits it previously had. 
@@ -28,7 +28,9 @@
 use base::hdl;
 use base::types::str;
 
+use threads::hdl;
 use process::hdl;
+use types::result;
 
 struct SecurityContextHandle : opaque(Handle);
 

@@ -1,0 +1,15 @@
+
+use base::types::slice;
+use base::option;
+use types::int;
+use types::result;
+
+union SysConfigOption : option_head(32) {}
+
+const SYS_CONFIG_OPTION_FLAG_IGNORE_VALIDITY: u32 = 0x1_0000;
+
+fn SetSysConfig(config: KSlice<SysConfigOption>) -> SysResult = 56;
+
+fn GetProvidedSysConfig(config: KSliceMut<SysConfigOption>) -> SysResult = 57;
+
+fn GetActiveSysConfig(config: KSliceMut<SysConfigOption>) -> SysResult = 58;

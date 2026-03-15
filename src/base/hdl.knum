@@ -6,12 +6,13 @@
 //! The type of the handle depends on the type of the object it refers to and the operations that can be performed on it.
 
 inline use types::hdl;
+use types::result;
 
 /// A `WideHandle<H>` is a 0-padded handle pointer that is the same width as wide as a `Uuid`.
 /// Any non-null handle stored in a `WideHandle<H>` is guaranteed not to have the same representation as a valid UUID.
 ///
 /// Note: Where pointers are 128-bit, the handling of `WideHandle<H>` is not yet decided.
-pub struct WideHandle<H> {
+struct WideHandle<H> {
     hdl: *handle H!Handle,
     pad([ulong; (16 / __SIZEOF_POINTER__) - 1])
 }

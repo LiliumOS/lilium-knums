@@ -1,0 +1,48 @@
+
+use types::int;
+
+use types::result;
+
+use base::types::slice;
+
+/// A description of a system function call for multiple dispatch
+struct SystemFunction {
+    /// The system call number and the status code on return.
+    /// Before a call to `DispatchSystemCalls`, this must be set by the caller as follows:
+    /// Only the lower 32 bits are used (on 64-bit platforms, the upper bits must be clear). 
+    /// The top 20 bits contain the subsystem number, and the bottom 12 bits contain the subsystem function number.
+    /// On return, if the system call returns `void`, this is set to uninitialized memory. 
+    /// Otherwise (for `SysResult` and `SysResult2` returns), this is set to sign extended 29-bit status code.
+    number_and_status: uninit<ilong>,
+    /// The system call return value. Unused before call. For kernel functions that return `void` or `SysResult`, or on an error, this is set to uninitialized data.
+    /// Otherwise, it's the value portion of the `SysResult2` return value.
+    value: uninit<*mut void>,
+    /// The list of parameter fragments. 
+    /// There are three cases for discrete parameters in the system function prototype:
+    /// * For types up to the size of the pointer, the parameter takes up a single slot of this array,
+    /// * For types that are between the size of a pointer and twice that size, the parameter takes up two consecutive slots of this array,
+    /// * For types that are larger than the size of two pointers, a pointer to the parameter is passed to this function (even if it is passed by value).
+    ///
+    /// Unused Parameter slots are not read and can be any value, including uinitialized.
+    /// These are not modified by the `DispatchSystemCalls` function
+    params: [uninit<*mut void>; 6],
+}
+
+
+/// Allows multiple dispatch of a list of system function calls. When the list is large, this can be more efficient than making individual system calls (due to avoiding multiple redundant context switches).
+/// Blocking and potentially blocking system calls cannot be made using this system call. Instead, use the events operations from the thread subsystem.
+/// IO Operations are only permitted if the target handle is in non-blocking or asynchronous mode (even if the resulting operation would not block).
+///
+/// The slice for `calls` is read by the kernel to retrieve the number and status, and then written with the result. 
+/// If any input in the array that requires a value is left unitiailized, userspace undefined behaviour results/
+///
+/// Individual errors do not cause an error return from this function, only errors that arise from performing the system calls (such as `INVALID_MEMORY` if the array is not readable or writable).
+/// Instead, individual errors (including `UNSUPPORTED_KERNEL_FUNCTION`) are written back to the `number_and_status` field. 
+/// The exception is that invalid inputs (IE. with bits 32..63 set) for `number_and_status` may result in an `INVALID_STATE` error from the whole function. 
+///
+/// In addition to the errors provided by each system call, `KERNEL_FUNCTION_WOULD_BLOCK` is returned as the status code for a given system call entry if the system call is potentially-blocking.
+///
+/// ## Errors
+/// * `INVALID_MEMORY`: If the memory pointed to by `calls` is not readable or writable for its length. Note that the entire array is checked for write access, even parts that aren't written to by the kernel.
+/// * `INVALID_STATE`: If any element of `calls` has an improperly initialized field accessed by the system call, and this error is detected.
+fn DispatchSystemCalls(calls: KSliceMut<SystemFunction>) -> SysResult = 0x70;

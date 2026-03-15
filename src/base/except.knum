@@ -1,0 +1,199 @@
+
+use types::int;
+use types::uuid;
+use base::hdl;
+use base::types::slice;
+use types::result;
+
+/// Status information about the exception. This is passed to exception entry points, and 
+struct ExceptionStatusInfo {
+    except_code: Uuid,
+    /// A set of bitflags about the exception. See the list of `EINFO_*` codes below. Top 32 bits are for type-specific behaviour
+    except_info: u64,
+    /// The reason for the exception. Other than `EREASON_USER`, 
+    ///  values less than 1024 cannot be se when raised via `RaiseAsyncException`, `HandleSynchronousException`, or `UnmanagedException` as they are reserved for the kernel.
+    /// Such values are silently set to `0`.
+    /// Values above this may have exception-specific meaning
+    except_reason: u64,
+}
+
+/// Generic Exception raised by a user operation. This is the default
+const EREASON_USER: u64 = 0;
+
+/// Exception raised by the kernel due to a generic reason.
+const EREASON_KERNEL: u64 = 1;
+
+/// Exception caused by a hardware exception
+const EREASON_TRAP: u64 = 2;
+
+/// Exception caused by a notification about a specified object changing state
+const EREASON_NOTIFY: u64 = 3;
+
+/// EINFO code indiciating that the exception handler should not unwind (but may execute other cleanup code). This is forced to be set when raised via `RaiseAsyncException`.
+const EINFO_NO_UNWIND: u64 = 0x0000_0001;
+
+/// Exception was asynchronously generated (via an event or a foreign )
+const EINFO_ASYNC: u64 = 0x0000_0002;
+
+/// Standard Exception type for triggering Sys-V unwinder
+const EXCEPT_SYSV: Uuid = U{4c0c6658-59ae-5675-90c3-ffcc0a7219ad};
+
+/// `except_info` flag for indicating that the Sys-V exception should be treated as a forced unwind.
+const EINFO_SYSV_FORCE_UNWIND: u64 = 0x0000_0001_0000_0000;
+
+/// Standard Exception type used by the `abort()` library function
+const EXCEPT_ABORT: Uuid = U{466fbae6-be8b-5525-bd04-ee7153b74f55};
+
+/// Standard Exception type raised by an access to an invalid mapping (either unmapped or mapped with wrong permissions). 
+/// Bits 32..33 of `except_info` contain an enum of the access type with the following values:
+/// * 0: Read access
+/// * 1: Execute Access
+/// * 2: Write access
+/// * 3: Other/unknown access
+/// 
+/// `EINFO_BOUNDS_VIOLATION_PROTECTION` is set if the exception was caused by an access to a defined mapping (including with `MAP_ATTR_RESERVE`)
+///   but the access violated the mapping attributes (IE. writing to a read-only page, or executing a page without execute permission)
+const EXCEPT_MEMORY_ACCESS_BOUNDS_VIOLATION: Uuid = U{fcf8d451-89e6-50b5-b2e6-396aec58a74a};
+
+const EINFO_BOUNDS_VIOLATION_ACCESS_MASK: u64 = 0x0000_0003_0000_0000;
+const EINFO_BOUNDS_VIOLATION_ACCESS_READ: u64 = 0x0000_0000_0000_0000;
+const EINFO_BOUNDS_VIOLATION_ACCESS_EXEC: u64 = 0x0000_0001_0000_0000;
+const EINFO_BOUNDS_VIOLATION_ACCESS_WRITE: u64 = 0x0000_0002_0000_0000;
+const EINFO_BOUNDS_VIOLATION_ACCESS_UNKNOWN: u64 = 0x0000_0003_0000_0000;
+
+/// Indicates that the error resulted from violating the attributes of a 
+const EINFO_BOUNDS_VIOLATION_PROTECTION: u64 = 0x0000_0004_0000_0000;
+
+/// Thrown as a result of a memory access error that is not a bounds violation (misaligned data)
+/// Note that depending on the platform, certain types of memory access errors may be erroneously detected as bounds violations or illegal instructions, and certain types of bounds violations may erroneously be detected as memory access errors
+const EXCEPT_MEMORY_ACCESS_ERROR: Uuid = U{ef1d81bc-58d9-5779-a4c7-540b9163cdf1};
+
+/// Special Exception type that indicates that a thread or process was terminated by the kernel. 
+/// Note: Exception Handlers will never recieve this exception (with `EREASON_KERNEL`). This exception code is reported directly to join events as the reason for termination.
+/// When the kernel delivers this exception type to a thread or process, it bypasses the established exception handler and terminates the thread or process outright as though by calling `UnmanagedException`.
+const EXCEPT_KERNEL_STOP: Uuid = U{f2520097-7a84-54f6-baf6-380242841fe9};
+
+/// Special Exception type that indicates a remote termination request, via the `TerminateThread` or `TerminateProcess` system calls.
+/// Like `EXCEPT_KERNEL_STOP` this is never naturally delivered to the target thread or process, and instead the target thread or process exits immediately as though by calling `UnmanagedException`.
+const EXCEPT_REMOTE_STOP: Uuid = U{79a90b8e-8f4b-5134-8aa2-ff68877017db};
+
+/// Standard exception type for user interactions indicating a desire for immediate abnormal termination. Unlike `EXCEPT_KERNEL_STOP` or `EXCEPT_REMOTE_STOP`, this is recieved by the target process/thread
+const EXCEPT_USER_STOP: Uuid = U{255f142a-31da-53d6-8667-a69cd7c2ab12};
+
+/// Special Exception type that is recieved by debuggers attached to the process when a breakpoint occurs. 
+/// This is delivered to a thread or process 
+const EXCEPT_DEBUG_TRAP: Uuid = U{df1ddb62-49c5-560f-86ab-1910471570b1};
+
+/// Standard Exception type for an unrecoverable system error that resulted in terminating the program
+/// This exception should never occur, but may when running in an emulator, or if a machine error causes corruption of the task state.
+/// Like `EXCEPT_KERNEL_STOP`, this is not handled through normal exception handling and is simply reported to join events as though the process or thread terminated by calling `UnmanagedException`
+const EXCEPT_EMUL_ERROR: Uuid = U{05e3080f-ded6-54a7-acfd-afec3d7e93cb};
+
+/// Standard Exception type to indicate an illegal instruction (such as an undefined instruction or a permission violation)
+const EXCEPT_ILLEGAL_INSTRUCTION: Uuid = U{9dc46cba-85a4-5b94-be24-03717a40c72b};
+
+/// Standard Exception Type to indicate a floating point error. The top 32 bits contain the fenv status exception flags when the exception ocurred.
+/// The format is Architecture specific but can be read using `FE*` constants defined by libc's `<fenv.h>`.
+const EXCEPT_FLOATING_POINT_ERROR: Uuid = U{5c91c672-f971-5b6b-a806-d6a6d2c8eb8a};
+
+/// Standard Exception Type to indicate an arithmetic trap. Only supported on some architectures. 
+/// This is generated by integer divide by zero faults and overflow traps. Bit 32 is set when indicating an integer divide by zero
+const EXCEPT_ARITHMETIC_TRAP: Uuid = U{73ea3388-09db-5517-9fbe-e52ddc1e7361};
+
+const EINFO_ARITHMETIC_TRAP_DIVIDE_ZERO: u64 = 0x0000_0001_0000_0000;
+
+/// Info about an exception being handled by the thread
+struct ExceptionInfo {
+    /// The status information that was raised by the exception
+    status: ExceptionStatusInfo,
+    /// A variable that is set to a null pointer when the ExceptionInfo is created and is unused and available for use by the exception handler
+    except_sys_used: *mut void,
+    /// A Pointer to the previous `ExceptionInfo` currently being handled on the current thread, or null if no other exceptions are live
+    last_exception_info: *const ExceptionInfo,
+    /// A reference to the address passed that is relevant to the exception. For `HandleSynchronousException`, this is the `data` pointer.
+    /// For traps related to memory accesses, this is the address that was attempted to be accessed. 
+    /// For exceptions generated by a local object changing state, this is a handle to that object.
+    /// In all other cases, this is a null pointer.
+    except_addr_ref: *mut void,
+    /// A pointer to the address that raised the exception, or a null pointer if the exception was asynchronous. Note that modifying this does not affect the return place.
+    trigger_code_addr: *const void,
+    /// A pointer to the stack for the thread when the exception occurs.
+    trigger_code_stack_head: *mut void,
+}
+
+/// Handle for the context of an exception
+struct ExceptionContextHandle : opaque(Handle);
+
+/// The type of the handler to establish.
+type ExceptionHandler = fn(*mut ExceptionInfo, *handle ExceptionContextHandle) -> !;
+
+/// Exits the current thread or process and reports `except` as the termination reason.
+/// While certain errors may occur, this function does not return in any case. If a memory error occurs, the status returned to join events is unspecified (usually an exception corresponding to the access error)
+fn UnmanagedException(except: *const ExceptionStatusInfo) -> ! = 0x40;
+
+/// Raises a synchronous exception on the current thread at the current location.
+/// This function returns successfully only if the exception handler resumes without unwinding.
+/// Note that while data is a pointer, it is not dereferenced and is simply copied into the `ExceptionInfo` verbatim
+/// The exception raised is not necessarily equal to the one provided, in particular:
+/// * Any `except_reason` value <1024 is set to 0
+/// * Bit 2 of `except_info` (EINFO_ASYNC) is cleared.
+///
+/// ## Errors
+/// * INVALID_MEMORY: If read access to except causes an error
+fn RaiseSynchronousException(except: *const ExceptStatusInfo, data: *mut void) -> SysResult = 0x41;
+
+/// Swaps the exception handler for the process. A null pointer means the default exception handler, which implicitly calls `UnmanagedException`
+/// Returns the existing exception handler.
+/// Setting this to null explicitly establishes this default behaviour. This also occurs if, when the exception is raised, executing the provided handler causes a bounds violation
+/// # Errors
+/// * INVALID_MEMORY: if handler is not a null pointer and points into an invalid or non-executable mapping when the function is called
+/// * PERMISSION: If the process permission `SetExceptionHandler` is denied to the current security context.
+fn SetExceptionHandler(handler: ExceptionHandler) -> SysResult2<ExceptionHandler> = 0x42;
+
+/// Gets a single general purpose register
+/// gregno is the register number for the architecture (see `ExceptGetReg`), which must a general purpose register.
+/// The register is always read in full, even if smaller windows of the register exist. Specifically, it treats the register as if it has the size of a pointer.
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: if `hdl` is not a live `ExceptionContextHandle` on the current thread.
+/// * `INVALID_STATE`: If `gregno` is not a valid general purpose register on the current architecture
+fn ExceptGetGpReg(hdl: *handle ExceptionContextHandle, gregno: u32) -> SysResult2<*mut void> = 0x43;
+
+/// Reads the value of the register, writing into data. size is the number of bytes read.
+/// regno is the Register number of the target register, usually the extended DWARF Register Numbers. 
+/// The valid sets of size values depend on the architecture and the register, and may also depend on the thread configuration. 
+/// General purpose registers are guaranteed to be readable at the size of a pointer.
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: if `hdl` is not a live `ExceptionContextHandle` on the current thread.
+/// * `INVALID_STATE`: If `regno` is not a valid register on the current architecture
+/// * `INVALID_STATE`: If `size` is not a valid register size class for `regno`
+/// * `INVALID_MEMORY`: If writing into `data` fails.
+fn ExceptGetReg(hdl: *handle ExceptionContextHandle, regno: u32, size: u32, data: *mut void) -> SysResult = 0x44;
+
+/// Modifies the value of the specified GPR, writing val into the register.
+/// gregno is the register number for the architecture, 
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: if `hdl` is not a live `ExceptionContextHandle` on the current thread.
+/// * `INVALID_STATE`: If `gregno` is not a valid general purpose register on the current architecture
+fn ExceptSetGpReg(hdl: *handle ExceptionContextHandle, gregno: u32, val: *mut void) -> SysResult = 0x45;
+
+/// Write the value of the register, reading from data. size is the number of bytes written.
+/// regno is the Register number of the target register, usually the extended DWARF Register Numbers. 
+/// The valid sets of size values depend on the architecture and the register, and may also depend on the thread configuration. 
+/// General purpose registers are guaranteed to be readable at the size of a pointer.
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: if `hdl` is not a live `ExceptionContextHandle` on the current thread.
+/// * `INVALID_STATE`: If `regno` is not a valid register on the current architecture
+/// * `INVALID_STATE`: If `size` is not a valid register size class for `regno`
+/// * `INVALID_MEMORY`: If reading from `data` for `size` bytes fails.
+fn ExceptGetReg(hdl: *handle ExceptionContextHandle, regno: u32, size: u32, data: *const void) -> SysResult = 0x46;
+
+/// Resumes execution by loading the exception context and then jumping to `ip`.
+/// If jumping to `ip` fails, it raises a `EXCEPT_MEMORY_ACCESS_BOUNDS_VIOLATION` (rather than returning an error). The context is still installed and can be read when the handler is reentered.
+/// Does not return successfully.
+/// ## Errors
+/// * `INVALID_HANDLE`: If `hdl` is not a live `ExceptionContextHandle` on the current thread.
+fn ExceptResumeAt(hdl: *handle ExceptionContextHandle, ip: *mut void) -> SysResult = 0x47;
