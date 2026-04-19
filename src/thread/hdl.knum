@@ -1,0 +1,14 @@
+
+use types::hdl;
+
+/// A handle to a thread of execution. Threads are the primary control division on Lilium and many permissions are set per-thread
+///
+/// ### Handle Rights
+/// The following handle rights are defined and correspond to the thread permissions with the same name. Other subsystems may define additional rights:
+/// * `Identify`: The handle can be used to identify (access) the thread to which it refers
+/// * `TerminateThread`: The handle can be used to raise a fatal stop exception on the thread
+/// * `RaiseException`: The handle can be used to raise a remote exception on the thread
+/// * `SendHandle`: The handle can be used to call `ThreadSendHandle`
+/// * `JoinThread`: The handle can be used to call `JoinThread`
+/// * `Interrupt`: The handle can be used to call `InterruptThread`
+struct ThreadHandle : opaque(Handle);

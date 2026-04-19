@@ -1,0 +1,113 @@
+
+use thread::hdl;
+use types::result;
+use base::types::slice;
+use base::types::option;
+use base::except;
+
+union ThreadStartOption : option_head(64) {}
+
+/// The context used by `StartThread`
+struct ThreadStartContext {
+    /// The initial entry point of the function. 
+    /// udata is exactly the value of the udata field
+    /// current is a handle for the spawned thread with full rights
+    /// init_handles is a slice that points to memory allocated for the thread (usually immediately before the stack pointer on entry), that contains null pointers or pointers to handles that are populated from the `init_handles` array
+    /// Note that this is not directly accessed by the `StartThread` system call, and thus errors are reported as exceptions
+    start_function: fn(udata: *mut void, current: *handle ThreadHandle, init_handles: KSlice<*handle Handle>) -> !,
+    /// A pointer to memory allocated for the initial stack. Note that on most platform, the stack grows downward, and thus this must be placed at the end of the suitable mapping
+    /// Note that this is not directly accessed by the `StartThread` system call, and thus errors are reported as exceptions
+    init_stack: *mut void,
+    /// A user data pointer that is passed verbatim to `start_function`
+    udata: *mut void,
+    /// The value for the initial thread pointer
+    thread_pointer: *mut void,
+    /// A slice of handles for the start function to recieve 
+    init_handles: KSlice<*handle Handle>,
+    /// A slice of additional options
+    options: KSlice<ThreadStartOption>,
+}
+
+/// The status of a thread exit. Either an exception or an exit status. 
+/// The two possible statuses can be told apart by the value of the `Uuid` of the exception: Because the bottom 12 bytes of a `StatusExit` are zeroed, an exit code will never correspond to a valid non-NIL UUID.
+/// NIL is reserved as an exception type
+/// The FULL UUID also is set (with the other fields of `ExceptionStatusInfo` set to zero) to indicate that the thread was terminated without status. 
+/// This happens if the process containing the thread exited while an external process has joined that thread.
+union JoinStatus {
+    /// An exception exit status. Contains the full exception information.
+    exception: ExceptionStatusInfo,
+    /// A normal exit status. The rest of the `JoinStatus` is zeroed by the kernel when this is returned.
+    exit: StatusExit,
+}
+
+/// An exit status
+struct StatusExit {
+    /// The status code, passed to 
+    exit_status: u32,
+    pad([u32; 3])
+}
+
+/// Obtains a handle to the current thread. The handle has full rights, even if the permission check would fail.
+///
+/// ## Errors
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+fn GetCurrentThread() -> SysResult2<*handle ThreadHandle> = 0;
+
+/// Starts a new thread according to `context`. A handle to that thread is returned. 
+/// The resulting handle has full rights if the process permission `FULL_ACCESS_THREAD` is granted to the current security context. 
+/// Otherwise, it has the permissions that would be implied by calling `RecheckPermissions` on the resulting handle. An error occurs (but the thread is still started) if this would result in a handle without the `Identify` right.
+/// See `ThreadStartContext` for the description of the fields.
+///
+/// The spawned thread inherits the current security context by default, inherits the resource limit context, shares all mappings that are not `MAP_THREAD_PRIVATE`, 
+///  and inherits the exception disposition.
+///
+/// ## Errors
+/// * `INVALID_MEMORY`: If the current thread cannot execute the start function
+/// * `INVALID_MEMORY`: If `context`, or any slices pointed to by it, are invalid
+/// * `INVALID_HANDLE`: If any entry in `init_handles` is neither a null handle nor a live handle on the current thread
+/// * `INVALID_OPTION`: If any option type in the options array is unrecognized or invalid
+/// * `INSUFFICIENT_MEMORY`: If the necessary kernel memory for creating the kernel context for the thread cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for the handle cannot be allocated for the thread
+/// * `INSUFFICIENT_MEMORY`: If the necessery kernel memory for any handle created for the started thread cannot be allocated
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for the handle or the thread context exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `INSUFFICIENT_MEMORY`: If allocating the necessary kernel memory for any handle created for the started thread exceeds the resource limit `"PROCESS_RESOURCE_MEMORY"` or `"PROCESS_PHYSICAL_MEMORY"` for the current security context
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by this operation.
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If the resource limit `"LIVE_HANDLES"` for the inherited security context would be exceeded by the creation of the threads.
+/// * `PERMISSION`: If the thread permission to the newly spawned thread `Identify` is denied by the current security context, and the process permission `FULL_ACCESS_THREAD` 
+fn StartThread(context: *const ThreadStartContext) -> SysResult2<*handle ThreadHandle> = 1;
+
+/// Terminates the thread referred to by the specified handle, or the current thread if `hdl` is null.
+/// The thread exits as though it recieved an unmanaged exception of type `EXCEPT_REMOTE_STOP`. 
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: If `hdl` is neither null nor a valid `ThreadHandle` that is live on the current thread
+/// * `PERMISSION`: If `hdl` is not null and does not have the handle right `TerminateThread`.
+fn TerminateThread(hdl: *handle ThreadHandle) -> SysResult = 2;
+
+/// Raises an asynchronous exception on the thread indicated by `hdl`. 
+/// The signalled exception sets `EINFO_ASYNC` and `EINFO_NO_UNWIND` in `except_info` and sets `except_reason` values <1024 to 0.
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: if `hdl` is not a valid thread handle that is live on the current thread.
+/// * `INVALID_MEMORY`: if `except` points to memory that cannot be read
+/// * `PERMISSION`: if `hdl` does not have the handle right `RaiseException`
+fn RaiseThreadException(hdl: *handle ThreadHandle, except: *const ExceptionStatusInfo) -> SysResult = 3;
+
+/// Sends a handle to the specified thread. The duplicated handle is temporarily allocated by the calling thread until a recieve call takes ownership
+///
+/// ## Errors
+/// * `INVALID_HANDLE`: If `hdl` is neither null nor a valid `ThreadHandle` that is live on the current thread
+/// * `PERMISSION`: If `hdl` is not null and does not have the handle right `SendHandle`.
+/// * `RESOURCE_LIMIT_EXHAUSTED`: If duplicating the handle would cause the resource limit `"LIVE_HANDLES"` for the current security context would be exceeded by the creation of the handle on the current thread
+/// * `INSUFFICIENT_MEMORY`: If duplicating that handle cannot 
+fn SendHandle(target: *handle ThreadHandle, hdl: *handle Handle) -> SysResult = 4;
+
+
+/// Recieves a Handle send by a `SendHandle` call. Returns null if none are pending.
+/// The handle is atomically transfered between threads by this call.
+///
+/// ## Errors
+/// * `RESOURCE_LIMIT_EXHAUSTED`
+fn RecieveHandle() -> SysResult2<*handle Handle> = 5;

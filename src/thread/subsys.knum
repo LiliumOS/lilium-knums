@@ -1,0 +1,3 @@
+use types::int;
+
+const THREAD_SUBSYS_NUMBER: u32 = 1;

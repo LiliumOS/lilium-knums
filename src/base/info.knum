@@ -1,24 +1,82 @@
 
 use base::types::slice;
+use base::types::str;
 use base::option;
 use types::int;
 use types::uuid;
 use types::result;
 
-struct SysInfoRequestArchInfo : option(U{416eed18-85ca-53c9-849f-4b54bb0568b7}) {
+/// Queries information about the current architecture
+/// This option is always supported.
+struct SysInfoRequestArchInfo : option(U{416eed18-85ca-53c9-849f-4b54bb0568b7}, SysInfoRequest) {
+    /// The Identifier number of the architecture
     arch_id: Uuid,
+    /// The architecture version string
     arch_version: u32,
+    /// The architecture processor string (for toolchain use, e.g. gcc's `-march` flag). May just be the default name for the architecture
+    processor_string: KStrBuf
 }
 
-struct SysInfoRequestOsVendor : option(U{22c479ab-c119-58d5-9c1e-fa03ddf9426a}) {
+/// Queries information about the current operating system. This is intended to be overriden by the USI.
+/// This option is always supported.
+struct SysInfoRequestOsVersion : option(U{22c479ab-c119-58d5-9c1e-fa03ddf9426a}, SysInfoRequest) {
     /// The name of the OS vendor
-    osvendor_name: KStrPtr,
+    osvendor_name: KStrBuf,
     /// The major OS version.
     os_major: u32,
     /// The minor os version
     os_minor: u32,
 }
 
+/// Queries information about the kernel vendor
+struct SysInfoRequestKernelVendor : option(U{01adbfd8-3b43-5115-9abd-5b2974375358}, SysInfoRequest) {
+    /// The name of the kernel vendor
+    kvendor_name: KStrBuf,
+    /// The kernel build id
+    build_id: Uuid,
+    /// The major kernel version
+    kernel_major: u32,
+    /// The minor kernel version
+    kernel_minor: u32,
+}
+
+/// Queries information about the specification implemented by the kernel.
+struct SysInfoRequestKernelSpec : option(U{6a085f80-ef9c-573b-b672-413245097f5b}, SysInfoRequest) {
+    /// The name of the specification implemented by the kernel. This is almost always "Lilium"
+    kernel_spec_name: KStrBuf,
+    /// The version of the specification implemented or zero if unknown, undefined. 
+    kernel_spec_version: u32,
+    /// A bit mask designating which core subsystems are provided by the kernel on the current version.
+    core_subsys_avail: u16,
+    pad([u16; 5])
+    
+}
+
+struct SysInfoRequestComputerName : option(U{82b314fe-0476-51ca-99de-bbd9711403cf}, SysInfoRequest) {
+    /// The system host name
+    hostname: KStrBuf,
+    /// The system unique identifier
+    sys_id: Uuid,
+    /// The System Display Name
+    sys_display_name: KStrBuf,
+    /// The System Label
+    sys_label: KStrBuf,
+}
+
+struct SysInfoRequestSupportedSubsystem: option(SysInfoRequest) {
+    /// The version of the subsystem.
+    /// The exact value of this depends on the subsystem queried.
+    pub subsys_version: u64,
+
+    /// The number of the subsystem for this supported subsystem.
+    ///
+    /// The base number for syscalls is this number `<<12`, and the base number for error numbers is this number `<<8`, and negated.
+    pub subsystem_no: u16,
+    /// The maximum syscall number supported (within the syscall region allocated to the subsystem)
+    ///
+    /// Note that it is not guaranteed that every syscall in the allocated region will be supported by the subsystem
+    pub max_sysno: u16,
+}
 
 union ProcInfoRequest : option_head(64) {
 
@@ -26,6 +84,11 @@ union ProcInfoRequest : option_head(64) {
 
 union SysInfoRequest : option_head(64) {
     common_processor_info: ProcInfoRequest,
+    arch_info: SysInfoRequestArchInfo,
+    os_version: SysInfoRequestOsVersion,
+    kernel_vendor: SysInfoRequestKernelVendor,
+    computer_name: SysInfoRequestComputerName,
+    supported_subsystem: SysInfoRequestSupportedSubsystem,
 }
 
 /// Flag bit for `SysInfoRequest` and `ProcInfoRequest`. that indicates that the option should be skipped as if the type is not recognized.
@@ -33,6 +96,7 @@ union SysInfoRequest : option_head(64) {
 const SYSINFO_OPTION_FLAG_SKIP: u32 = 0x10000;
 
 /// Queries information about the current system.
+///
 ///
 /// ## Errors 
 /// * `INVALID_MEMORY` if any memory pointed to by kslice is invalid

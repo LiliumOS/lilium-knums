@@ -1,0 +1,151 @@
+//! # Events 
+//! Events are the primary way you can synchronize inter-thread communication. 
+//!
+//! An event is notified by some operation, called a notifier, and it is fulfiled if that notification causes its condition to be satisfied. 
+//!
+//! ## Blocking
+//! Two primitives are provided for blocking on events: `BlockOnEventsAll` and `BlockOnEventsAny`. 
+//! The behavior of the functions differ in terms of the overall waiting condition: `BlockOnEventsAll` waits until all events have their wait condition become true, `BlockOnEventsAny` waits until any of the provided events have their wait condition become true.
+//!
+//! Two side-channels for exiting a blocking operation exist: Thread Interruption, and the Blocking timeout.
+//! Thread Interrupt is a flag on each thread. It is set atomically either by an explicit call to `InterruptThread` or by certain other events (like an exception being handled). 
+//! When it becomes set, a thread that is blocked (or about to block) consumes the flag and returns `INTERRUPTED`.
+//! If not, it remains pending until cleared by a blocking operation (that immediately returns `INTERUPTED`). 
+//! 
+//! Additionally, the blocking timeout is a duration after which any blocking operation returns `TIMEOUT`. 
+//! The blocking timeout is initially unset when a thread is created and can be established on that thread by calling `SetBlockingTimeout`.
+//! The blocking timeout functions on a monotonic clock that is independent of any defined clock device.
+
+use types::int;
+
+use thread::operations;
+
+use io::types::duration;
+
+/// Blocks until the specified address is notified. This is the primary synchronization primitive on Lilium.
+/// Prior to blocking, the address is read atomically. If it compares unequal to `expected_value` the function returns `INVALID_STATE` and writes the loaded value to `expected_value`. 
+/// The test ignores any bit set in `ignore_mask`, however they are still read (they are permitted to be uninit, however). 
+/// The comparison is such that any modification to the address that preceeds a call to `NotifyAddress` will be observed if the blocking begins after that call to `NotifyAddress`.
+/// An address being blocked on can be notified by `NotifyAddress`.
+/// Addresses are awaited and notified in physical memory, not virtual memory. However, in current versions, `AwaitAddress` cannot access mappings backed by files or block devices, including memory buffers.
+/// 
+/// ## Errors 
+/// The following errors arise when blocking on this option:
+/// * If `address` is not aligned to the size of a pointer, or if it cannot be read or written to, returns `INVALID_MEMORY`
+/// * If `address` belongs to a mapping that is not anonymous, 
+/// * If the read from `address` compares unequal to `expected_value` ignoring any bits set in `ignore_mask, returns `INVALID_STATE`. 
+struct AwaitAddressEvent : option(U{08c5ae04-39b9-5e45-a83c-05a9c763ac58}, Event) {
+    /// The address to be waited on. 
+    address: *mut ulong,
+    /// The expected value when the value is tested. If a mismatch occurs
+    expected_value: ulong,
+    ignore_mask: ulong,
+}
+
+/// An Event that is never notified. When blocking on this event alone, the blocking function never returns successfully.
+struct PauseThreadEvent : option(U{e637cc0b-81c4-5def-bd5b-cebed55c25a0}, Event) {}
+
+/// Waits for the specified thread to terminate and stores the status in `status`.
+/// 
+/// ## Errors
+/// The following errors occur when blocking on this option:
+/// * If `thread` is an invalid thread handle on the current thread, returns `INVALID_HANDLE`
+/// * If `thread` does not have the handle right `JOIN_THREAD`, returns `PERMISSION`
+/// * If `thread` refers to the current thread, returns `DEADLOCK`.
+struct JoinThreadEvent : option(U{b5a0e771-5c78-54e3-b09b-e9130c0358c1}, Event) {
+    status: JoinStatus
+    thread: *handle ThreadHandle,
+}
+
+/// A null event which notifies immediately. 
+/// 
+/// Formally, when blocking on this event alone, the blocking function returns succesfully immediately, except:
+/// * The `Interrupted` flag is guaranteed to be checked prior to returning succesfully from the function,
+/// * If a Blocking timeout of 0.0 seconds is set, it is unspecified whether the timeout is checked (in which case, it expires immediately and the function returns `TIMEOUT`)
+struct NullEvent : option(U{efeb89c0-fb86-5817-aff7-5066d07515cf}, Event) {}
+
+/// Event Types.
+union Event : option_head(32) {
+    await_address: AwaitAddressEvent,
+    pause_thread: PauseThreadEvent,
+    null: NullEvent,
+    join: JoinThreadEvent,
+}
+
+/// Options for `BlockOnEventsAll`/`BlockOnEventsAny`
+union BlockingOperationOption : option_head(32) {}
+
+/// Options for `NotifyAddress`
+union NotifyAddressOption : option_head(32) {}
+
+/// Waits for a list of events, returning succesfully when all have been notified. 
+/// Clears `OPTION_FLAG_IGNORE` of all ignorable options that were recognized.
+/// 
+/// On success, returns the total number of events that notified. This is equal to the length of `events` if all are recognized (or not ignorable).
+///
+/// An empty list (after ignoring any unrecognized ignorable options) returns `0` immediately, except that it is unspecified whether or not the `Interrupted` flag checked and consumed.
+///
+/// ## Errors
+/// * If any memory pointed to by `events` cannot be read or written to, returns `INVALID_MEMORY`
+/// * If any memory pointed to by `options` cannot be read, returns `INVALID_MEMORY`
+/// * If any option is invalid, returns `INVALID_OPTION`
+/// * If any option in is unrecognized without setting `OPTION_FLAG_IGNORE`, returns `INVALID_OPTION`. 
+/// * If the thread was interrupted (either by an exception, or an explicit call to `InterruptThread`), returns `INTERRUPTED`.
+/// * If a deadlock in any recognized operation is detected, returns `DEADLOCK`. This is best-effort only, except as documented for specific event types
+/// * If the blocking timeout expire, returns `TIMEOUT`
+/// * Additionally, Returns any error caused by establishing any event. See the documentation for the option
+/// * If this function is called through `DispatchSystemCalls`, returns `KERNEL_FUNCTION_WOULD_BLOCK`
+fn WaitForEventsAll(events: KSliceMut<Event>, options: KSlice<BlockingOperationOption>) -> SysResult = 0x10;
+
+/// Waits for a list of events, returning succesfully when any have been notified. 
+/// Clears `OPTION_FLAG_IGNORE` of all ignorable options that were recognized.
+/// 
+/// On success, returns the index into `events` of the event that notified. If multiple events notify, it's unspecified which value is returned.
+///
+/// It is an error to pass an empty list, after removing any unrecognized ignorable options.
+///
+/// ## Errors
+/// * If any memory pointed to by `events` cannot be read or written to, returns `INVALID_MEMORY`\
+/// * If any memory pointed to by `options` cannot be read, returns `INVALID_MEMORY`
+/// * If any option is invalid, returns `INVALID_OPTION`
+/// * If any option is unrecognized without setting `OPTION_FLAG_IGNORE`, returns `INVALID_OPTION`. 
+/// * If no option provided in `events` is recognized (including if an empty list is provided), returns `INVALID_STATE`.
+/// * If the thread was interrupted (either by an exception, or an explicit call to `InterruptThread`), returns `INTERRUPTED`.
+/// * If the blocking timeout expire, returns `TIMEOUT`
+/// * If a deadlock in any recognized operation is detected, returns `DEADLOCK`. This is best-effort only, except as documented for specific event types
+/// * Additionally, Returns any error caused by establishing any event. See the documentation for the option
+/// * If this function is called through `DispatchSystemCalls`, returns `KERNEL_FUNCTION_WOULD_BLOCK`
+fn WaitForEventsAny(events: KSliceMut<Event>, options: KSlice<BlockingOperationOption>) -> SysResult = 0x11;
+
+/// Interrupts the thread specified by `th`. If `th` is currently blocked on any event, the thread is woken and the blocking system call returns `INTERRUPTED` immediately.
+/// Otherwise, sets the interrupted flag on the specified thread.
+/// A call to this function *synchronizes-with* a return from a blocking system call that consumes the interrupted flag set by this call or a subsequent operation that sets the interrupted flag.
+/// 
+/// ## Errors 
+/// * If `th` is not a valid thread handle, returns `INVALID_HANDLE`
+/// * If `th` does not have the handle right `INTERRUPT_THREAD`, returns `PERMISSION`
+fn InterruptThread(th: *handle ThreadHandle) -> SysResult = 0x12;
+
+/// Sets the blocking timeout for the current thread, or clears it if it is null. Any previous blocking timeout is 
+/// Setting a blocking timeout of 0 seconds and 0 nanoseconds is valid. Such a timeout expires immediately about any blocking function.
+///
+/// The blocking timeout is counted from the moment a thread begins to block, and is counted against a monotonically increasing clock that is at least precise to 100 nanoseconds.
+/// When the timeout expires, the thread is unblocked and the blocking operation returns `TIMEOUT`. The thread may be unblocked later than the specified time, but will never be unblocked with `TIMEOUT` early
+/// 
+/// ## Errors
+/// * `timeout` is non-null, and any memory pointed to by it cannot be read, returns `INVALID_MEMORY`
+/// * If `nanos` is greater than or equal to 1000000, returns `INVALID_STATE`
+fn SetBlockingTimeout(timeout: *const Duration) -> SysResult = 0x13;
+
+/// Notifies the specified address
+/// If a thread is blocking on the specified (physical) address, with an specified `ignore_mask`, such that `(!wake_mask & !ignore_mask)` is nonzero, that thread is a candidate for waking
+/// Up to `notify_count` total threads are woken. If more are blocking than specified,  the selected threads are chosen arbitrarily.
+/// On success, returns the total number of candidate threads (not the number woken) Note that with a `notify_count` of `0`, this function only counts candidates without unblocking any
+///
+/// ## Errors
+/// * If `addr` cannot be read or written to, or is not aligned to the size of a pointer, returns `INVALID_MEMORY`
+/// * If any memory in `options` cannot be read, returns `INVALID_MEMORY`
+/// * If `addr` belongs to a mapping that is not anonymous, returns `INVALID_MEMORY`
+/// * If any option in `options` is invalid, returns `INVALID_OPTION`
+/// * If any option in `options` is unrecognized and does not set `OPTION_FLAG_IGNORE`, returns `INVALID_OPTION`
+fn NotifyAddress(addr: *mut ulong, wake_mask: ulong, notify_count: ulong, options: KSlice<NotifyAddressOption>) -> SysResult2<ulong> = 0x18;

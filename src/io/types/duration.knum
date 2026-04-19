@@ -1,0 +1,7 @@
+
+use types::int;
+
+struct Duration {
+    seconds: u64,
+    nanos: u32,
+}

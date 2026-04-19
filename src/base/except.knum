@@ -121,6 +121,11 @@ struct ExceptionInfo {
     trigger_code_stack_head: *mut void,
 }
 
+
+
+/// Additional options for establishing an exception handler.
+union ExceptHandlerOption : option_head(32) {}
+
 /// Handle for the context of an exception
 struct ExceptionContextHandle : opaque(Handle);
 
@@ -148,7 +153,7 @@ fn RaiseSynchronousException(except: *const ExceptStatusInfo, data: *mut void) -
 /// # Errors
 /// * INVALID_MEMORY: if handler is not a null pointer and points into an invalid or non-executable mapping when the function is called
 /// * PERMISSION: If the process permission `SetExceptionHandler` is denied to the current security context.
-fn SetExceptionHandler(handler: ExceptionHandler) -> SysResult2<ExceptionHandler> = 0x42;
+fn SetExceptionHandler(handler: ExceptionHandler, options: KSlice<ExceptHandlerOption>) -> SysResult2<ExceptionHandler> = 0x42;
 
 /// Gets a single general purpose register
 /// gregno is the register number for the architecture (see `ExceptGetReg`), which must a general purpose register.

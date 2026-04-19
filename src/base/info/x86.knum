@@ -1,0 +1,83 @@
+
+use base::config;
+use base::option;
+use base::uuid;
+use base::int;
+
+/// Allows determining cpu features.
+///
+/// This is generally equivalent to executing a `cpuid` instruction on the appropriate processor (except in some edge cases, described on the `cpu_feature_info` field),
+///  however, the result may be cached by the kernel, or by the USI implementation.
+/// Thus, making a `ProcInfoX86CpuidFeatures` request on the appropriate processor is not guaranteed to produce full serialization.
+///
+/// This option is only supported on x86 targets
+struct ProcInfoX86FeatureInfo : option(U{cdb91f53-ae85-57b6-843a-94d6050b5f0c}, ProcInfoRequest) {
+    /// Contains the feature array.
+    /// The layout of the array is as follows:
+    /// * cpuid[eax=1].ecx
+    /// * cpuid[eax=1].edx
+    /// * cpuid[eax=7,ecx=0].ecx
+    /// * cpuid[eax=7,ecx=0].edx
+    /// * cpuid[eax=7,ecx=0].ebx
+    /// * cpuid[eax=7,ecx=1].eax
+    /// * cpuid[eax=7,ecx=1].ecx
+    /// * cpuid[eax=7,ecx=1].edx
+    /// * cpuid[eax=7,ecx=1].ebx
+    /// * cpuid[eax=7,ecx=2].eax
+    /// * cpuid[eax=7,ecx=2].ecx
+    /// * cpuid[eax=7,ecx=2].edx
+    /// * Reserved
+    /// * Reserved
+    /// * cpuid[eax=0x80000001].ecx*
+    /// * cpuid[eax=0x80000001].edx
+    ///
+    /// Reserved fields are currently set to 0. This may change in the future.
+    ///
+    /// Features that require xsave/fxsr support are only exposed through this interface if the CPU permits saving and restoring the relevant state components. 
+    /// The kernel is guaranteed to support sse and related features if the cpu does.
+    /// Note that this can be more accurate than manually testing against xgetbv, as the features and/or state components may be set lazily.
+    ///
+    /// ## Notes about Extended Processor Info (cpuid[eax=0x80000001])
+    /// The value set in `cpu_feature_info[14]` does not exactly match the content of the `ecx` register after a `cpuid` instruction for that leaf,
+    ///  specifically the following differences are observed:
+    /// * Bits 0-9, 12-17, 23, and 24, which are mirrors of the same bits in `cpuid[eax=1].ecx` (`cpu_feature_info[0]`) on AMD Processors only, are set to `0` regardless of the processor,
+    /// * Bit 10, which indicates `syscall` support on the AMD k6 processor only, is clear,
+    /// * Bit 11, which indicates `syscall` support, is set to `1` on an AMD k6 processor that indicates support via `cpuid[eax=0x80000001].ecx[10]`, and
+    /// * Bit 11 may be set to `0` if executed from a 32-bit process running on a 64-bit OS, even if `cpuid` would report it's support.
+    cpu_feature_info: [u32; 16],
+}
+
+/// Allows determining supported xsave exposed features/state components
+/// This request is only supported on x86 and is only guaranteed to be supported if:
+/// * xsave is supported by the cpu, and
+/// * oxsave is supported by the OS.
+struct ProcInfoXSaveFeatures : option(U{7d68f3d5-e658-5ce7-a131-283889356c66}, ProcInfoRequest) {
+    /// All components supported by xcr0 on the current CPUID. 
+    /// (Returned by `cpuid[eax=0x0D, ecx=0].edx:eax`)
+    xsave_supported_components: u64,
+    /// The maximum size (in bytes) of the `xsave` save area if all components indicated by `xsave_supported_components` were enabled simultaneously
+    /// (Returned by `cpuid[eax=0x0D,ecx=0].ecx`)`
+    xsave_area_max_size: u32,
+    /// The xsave feature flags
+    /// (Returned by `cpuid[eax=0x0D,ecx=1].eax`)
+    xsave_features: u32,
+}
+
+/// Allows determining supported xsave exposed features/state components
+/// This request is only supported on x86 and is only guaranteed to be supported if:
+/// * xsave is supported by the cpu,
+/// * oxsave is supported by the OS,
+/// * AVX10 is enumerated by the CPU and supported by the Kernel.
+struct ProcInfoAvx10Features: option(U{6536f924-ba4f-5757-916e-523ab4e4ef4c}, ProcInfoRequest) {
+    /// The CPU Feature Info for AVX10
+    ///
+    /// The layout of the array is as follows:
+    /// * `cpuid[eax=0x24,ecx=0].ebx`
+    /// * `cpuid[eax=0x24,ecx=1].ecx`
+    /// * The remaining elements are reserved.
+    ///
+    /// Reserved elements currently read as 0 but may be defined in future versions
+    pub avx10_feature_info: [u32; 16],
+}
+
+

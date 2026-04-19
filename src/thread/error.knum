@@ -1,0 +1,13 @@
+//! Errors from the thread subsystem.
+//! These primarily are errors regarding blocking operations
+
+use types::result;
+
+/// A blocking operation was detected to deadlock
+const DEADLOCK: SysResult = -1;
+
+/// A blocking operation was interrupted
+const INTERRUPTED: SysResult = -2;
+
+/// The timeout set for a thread expired while blocking
+const TIMEOUT: SysResult = -3;

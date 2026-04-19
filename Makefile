@@ -1,5 +1,5 @@
 
-OUTPUTS := base
+OUTPUTS := base thread
 
 all: stamp
 
